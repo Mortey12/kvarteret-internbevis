@@ -6,8 +6,10 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from "react"
+import { AppState } from "react-native"
 import i18n from "@/app/localization/i18n"
 import { emitOperationalDiagnostic, flushOperationalDiagnostics } from "@/core/observability"
 import { getStoredValue, removeStoredValue, setStoredValue } from "@/core/storage/asyncStorage"
@@ -28,7 +30,7 @@ import {
     saveCredentials,
     saveLoginMarker,
 } from "@/features/auth/data/authRepository"
-import { toAuthServiceError } from "@/features/auth/domain/authError"
+import { isInvalidAuthError, toAuthServiceError } from "@/features/auth/domain/authError"
 import {
     getHydrationErrorMessage,
     getSignedOutReasonKey,
@@ -39,6 +41,17 @@ import {
     resolveHydrationPrecheck,
 } from "@/features/auth/domain/sessionHydration"
 import type { User } from "@/shared/types/user"
+
+// Result of the latest card refresh from the backend ("Oppdatert nå" indicator).
+export interface CardRefreshInfo {
+    status: "idle" | "refreshing" | "updated" | "failed"
+    lastUpdatedAt: number | null
+    // "auth": the server rejected the session (card kept, re-login needed to update).
+    failure: "auth" | "network" | null
+}
+
+const REFRESH_RETRY_DELAYS_MS = [2000, 6000, 15000]
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
 // One discriminated union instead of parallel booleans: the session is always
 // in exactly one of these states, and impossible combinations (for example
@@ -57,6 +70,8 @@ interface SessionContextValue {
     // True while an authenticated user is rendered from the offline cache
     // (refresh in flight or last refresh failed transiently).
     staleFromCache: boolean
+    cardRefresh: CardRefreshInfo
+    refreshCard: () => Promise<void>
     isAnonymous: boolean
     isHydrating: boolean
     isLoading: boolean
@@ -81,6 +96,59 @@ const clearStoredSession = async (): Promise<void> => {
 export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Element => {
     const [state, setState] = useState<SessionState>({ status: "hydrating" })
     const [isLoading, setIsLoading] = useState(false)
+    const [cardRefresh, setCardRefresh] = useState<CardRefreshInfo>({
+        status: "idle",
+        lastUpdatedAt: null,
+        failure: null,
+    })
+    const refreshInFlight = useRef(false)
+
+    // Re-fetches the card (roles/permissions). Retries when no response arrives and
+    // NEVER signs the user out: on any failure the current card stays visible.
+    const refreshCard = useCallback(async (): Promise<void> => {
+        if (refreshInFlight.current) return
+        refreshInFlight.current = true
+        try {
+            const { accessToken } = await getSavedCredentials()
+            if (!accessToken) return
+            setCardRefresh(previous => ({ ...previous, status: "refreshing" }))
+
+            for (let attempt = 0; ; attempt += 1) {
+                try {
+                    const user = await getInternkortInformation(accessToken)
+                    await saveLoginMarker(user.id)
+                    setState(previous =>
+                        previous.status === "authenticated"
+                            ? { status: "authenticated", user, staleFromCache: false }
+                            : previous,
+                    )
+                    setCardRefresh({ status: "updated", lastUpdatedAt: Date.now(), failure: null })
+                    return
+                } catch (error) {
+                    const rejected = isInvalidAuthError(error)
+                    if (rejected || attempt >= REFRESH_RETRY_DELAYS_MS.length) {
+                        setCardRefresh(previous => ({
+                            ...previous,
+                            status: "failed",
+                            failure: rejected ? "auth" : "network",
+                        }))
+                        return
+                    }
+                    await sleep(REFRESH_RETRY_DELAYS_MS[attempt])
+                }
+            }
+        } finally {
+            refreshInFlight.current = false
+        }
+    }, [])
+
+    // Every time the app is opened/foregrounded, refresh the card again.
+    useEffect(() => {
+        const subscription = AppState.addEventListener("change", nextState => {
+            if (nextState === "active") void refreshCard()
+        })
+        return () => subscription.remove()
+    }, [refreshCard])
 
     useEffect(() => {
         const resolveSignedOutState = async (
@@ -160,6 +228,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
                 }
                 await saveLoginMarker(hydratedUser.id)
                 setState({ status: "authenticated", user: hydratedUser, staleFromCache: false })
+                setCardRefresh({ status: "updated", lastUpdatedAt: Date.now(), failure: null })
                 await removeStoredValue(ANONYMOUS_MODE_STORAGE_KEY)
             } catch (error) {
                 const outcome = resolveHydrationErrorOutcome(error, snapshot.cachedUser)
@@ -183,6 +252,13 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
                 }
 
                 if (outcome.kind === "keep-cached-user") {
+                    const rejected = isInvalidAuthError(error)
+                    setCardRefresh({
+                        status: "failed",
+                        lastUpdatedAt: null,
+                        failure: rejected ? "auth" : "network",
+                    })
+                    if (!rejected) void refreshCard()
                     setState({
                         status: "authenticated",
                         user: outcome.cachedUser,
@@ -197,7 +273,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
         }
 
         void hydrateSession()
-    }, [])
+    }, [refreshCard])
 
     const setUser = useCallback((nextUser: User | null): void => {
         setState(
@@ -273,6 +349,8 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             status: state.status,
             user: state.status === "authenticated" ? state.user : null,
             staleFromCache: state.status === "authenticated" ? state.staleFromCache : false,
+            cardRefresh,
+            refreshCard,
             isAnonymous: state.status === "anonymous",
             isHydrating: state.status === "hydrating",
             isLoading,
@@ -283,7 +361,17 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             loginWithToken,
             logout,
         }),
-        [continueAnonymously, exitAnonymousMode, isLoading, loginWithToken, logout, setUser, state],
+        [
+            cardRefresh,
+            continueAnonymously,
+            exitAnonymousMode,
+            isLoading,
+            loginWithToken,
+            logout,
+            refreshCard,
+            setUser,
+            state,
+        ],
     )
 
     return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

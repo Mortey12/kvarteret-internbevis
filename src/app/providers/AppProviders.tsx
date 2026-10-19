@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query"
 import * as Updates from "expo-updates"
 import React, { PropsWithChildren, useEffect, useMemo } from "react"
-import { LogBox } from "react-native"
+import { AppState, LogBox } from "react-native"
 import { MD3LightTheme, PaperProvider } from "react-native-paper"
 import { Uniwind } from "uniwind"
 import { DeepLinkProvider } from "@/app/providers/DeepLinkProvider"
@@ -29,6 +29,24 @@ export const AppProviders = ({ children }: PropsWithChildren): React.JSX.Element
             void Updates.reloadAsync()
         }
     }, [isUpdatePending])
+
+    // Check for (and download) an OTA update every time the app is opened/foregrounded;
+    // the effect above then reloads. Failures are ignored: we simply retry next open.
+    useEffect(() => {
+        if (!Updates.isEnabled) return
+        const check = async (): Promise<void> => {
+            try {
+                const result = await Updates.checkForUpdateAsync()
+                if (result.isAvailable) await Updates.fetchUpdateAsync()
+            } catch {
+                // Offline or server error: retry on next open.
+            }
+        }
+        const subscription = AppState.addEventListener("change", nextState => {
+            if (nextState === "active") void check()
+        })
+        return () => subscription.remove()
+    }, [])
 
     const paperTheme = useMemo(
         () => ({
