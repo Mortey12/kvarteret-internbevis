@@ -8,6 +8,7 @@ import {
     useMemo,
     useState,
 } from "react"
+import i18n from "@/app/localization/i18n"
 import { emitOperationalDiagnostic, flushOperationalDiagnostics } from "@/core/observability"
 import { getStoredValue, removeStoredValue, setStoredValue } from "@/core/storage/asyncStorage"
 import { reportSessionLogoutDiagnostic } from "@/features/auth/data/authDiagnosticsRepository"
@@ -30,6 +31,7 @@ import {
 import { toAuthServiceError } from "@/features/auth/domain/authError"
 import {
     getHydrationErrorMessage,
+    getSignedOutReasonKey,
     shouldClearCredentialsOnHydrationError,
 } from "@/features/auth/domain/authHydration"
 import {
@@ -176,7 +178,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
                         occurredAt: new Date().toISOString(),
                     })
                     await clearStoredSession()
-                    setState(await resolveSignedOutState())
+                    setState(await resolveSignedOutState(i18n.t(getSignedOutReasonKey(error))))
                     return
                 }
 
