@@ -56,6 +56,8 @@ export const translations = {
             kontrollRole: "Rolle",
             kontrollValidProof: "GYLDIG BEVIS",
             kontrollInvalidProof: "UGYLDIG BEVIS",
+            probationExpired:
+                "Din prøvetid er utløpt. Du må avtale kontrakt med din leder, eller din leder må opprette din profil i personaldatabasen.",
             kontrollLoginPrompt: "Logg inn for å vise internbeviset ditt.",
             notRegistered: "Du er ikke registrert.",
             logout: "Logg ut",
@@ -270,6 +272,8 @@ export const translations = {
             kontrollRole: "Role",
             kontrollValidProof: "VALID ID",
             kontrollInvalidProof: "INVALID ID",
+            probationExpired:
+                "Your probation period has expired. You must agree a contract with your manager, or your manager must create your profile in the personnel database.",
             kontrollLoginPrompt: "Log in to show your ID.",
             kontrollAnonymousDescription:
                 "This is anonymous mode. Log in to show a valid internal ID.",

@@ -79,6 +79,7 @@ export const mobileCardResponseApiSchema = z.object({
     active_roles: z.array(mobileCardRoleApiSchema).nullable().optional(),
     role_history: z.array(mobileCardRoleHistoryApiSchema).nullable().optional(),
     word_of_the_day: nullableStringSchema,
+    probation_expired: z.boolean().nullable().optional(),
 })
 
 export const mobileCardSessionApiSchema = z.object({
@@ -140,6 +141,7 @@ export function parseInternkortInformation(payload: unknown): User {
         aktiveVerv: (parsed.active_roles ?? []).map(mapMobileCardRole),
         vervHistorikk: (parsed.role_history ?? []).map(mapMobileCardRoleHistory),
         dagensOrd: parsed.word_of_the_day ?? "",
+        proveperiodeUtlopt: parsed.probation_expired ?? false,
     }
 }
 

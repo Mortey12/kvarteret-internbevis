@@ -28,6 +28,7 @@ export interface User {
     aktiveVerv: InternKortVerv[]
     vervHistorikk: InternKortVervHistorikk[]
     dagensOrd: string
+    proveperiodeUtlopt?: boolean
 }
 
 export const createDemoUser = (): User => ({

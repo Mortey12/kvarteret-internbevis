@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query"
-import React, { PropsWithChildren, useMemo } from "react"
+import * as Updates from "expo-updates"
+import React, { PropsWithChildren, useEffect, useMemo } from "react"
 import { LogBox } from "react-native"
 import { MD3LightTheme, PaperProvider } from "react-native-paper"
 import { Uniwind } from "uniwind"
@@ -20,6 +21,15 @@ if (__DEV__) {
 
 export const AppProviders = ({ children }: PropsWithChildren): React.JSX.Element => {
     const colors = useThemeRuntimeColors()
+    const { isUpdatePending } = Updates.useUpdates()
+
+    // shortcut: reloads immediately, so an in-progress login form resets; upgrade to reload on background if that bites.
+    useEffect(() => {
+        if (isUpdatePending) {
+            void Updates.reloadAsync()
+        }
+    }, [isUpdatePending])
+
     const paperTheme = useMemo(
         () => ({
             ...MD3LightTheme,

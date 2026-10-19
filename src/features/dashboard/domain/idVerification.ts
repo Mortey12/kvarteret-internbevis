@@ -6,7 +6,12 @@ import {
 } from "@/shared/domain/membership"
 import type { User } from "@/shared/types/user"
 
-export type IdVerificationReason = "active-role" | "pingvin-points" | "grace-period" | "none"
+export type IdVerificationReason =
+    | "active-role"
+    | "pingvin-points"
+    | "grace-period"
+    | "probation-expired"
+    | "none"
 
 export interface IdVerificationStatus {
     isValid: boolean
@@ -23,6 +28,10 @@ export const getIdVerificationStatus = (
     user: User,
     now: Date = new Date(),
 ): IdVerificationStatus => {
+    if (user.proveperiodeUtlopt) {
+        return { isValid: false, reason: "probation-expired", tier: 0 }
+    }
+
     if (hasActiveRole(user)) {
         return {
             isValid: true,
