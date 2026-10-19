@@ -18,6 +18,7 @@ import {
     type DisplayRoleRow,
     resolvePersistedRoleSelections,
 } from "@/features/dashboard/domain/profileRoles"
+import { CardUpdateStatus } from "@/features/dashboard/ui/components/CardUpdateStatus"
 import { ProfileAvatar } from "@/features/dashboard/ui/components/ProfileAvatar"
 import { SelectedFrontpageRolesGrid } from "@/features/dashboard/ui/components/SelectedFrontpageRolesGrid"
 import { useFrontpageRoles } from "@/features/dashboard/ui/FrontpageRolesProvider"
@@ -215,6 +216,8 @@ export const ProfileScreen = (): React.JSX.Element => {
         status: sessionStatus,
         isLoading,
         staleFromCache,
+        cardRefresh,
+        refreshCard,
         exitAnonymousMode,
     } = useSession()
     const { selectedFrontpageRoleSelections } = useFrontpageRoles()
@@ -308,6 +311,11 @@ export const ProfileScreen = (): React.JSX.Element => {
                                 }
                             />
                         )}
+
+                        <CardUpdateStatus
+                            refresh={cardRefresh}
+                            onRetry={() => void refreshCard()}
+                        />
 
                         <SecondaryDetailCard label={t("wordOfTheDay")} value={wordOfDayValue} />
                     </>

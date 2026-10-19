@@ -56,6 +56,13 @@ export const translations = {
             kontrollRole: "Rolle",
             kontrollValidProof: "GYLDIG BEVIS",
             kontrollInvalidProof: "UGYLDIG BEVIS",
+            cardUpdating: "Oppdaterer …",
+            cardUpdatedNow: "Oppdatert nå",
+            cardUpdatedAt: "Oppdatert kl. {{time}}",
+            cardUpdateFailed:
+                "Kunne ikke oppdatere. Viser sist lagrede kort. Trykk for å prøve igjen.",
+            cardUpdateAuthFailed:
+                "Kunne ikke oppdatere kortet. Logg ut og inn igjen for å oppdatere.",
             signedOutSessionExpired:
                 "Du ble logget ut fordi innloggingen din er utløpt eller ikke lenger gyldig. Logg inn på nytt med e-post og kode.",
             signedOutProfileInactive:
@@ -278,6 +285,11 @@ export const translations = {
             kontrollRole: "Role",
             kontrollValidProof: "VALID ID",
             kontrollInvalidProof: "INVALID ID",
+            cardUpdating: "Updating …",
+            cardUpdatedNow: "Updated just now",
+            cardUpdatedAt: "Updated at {{time}}",
+            cardUpdateFailed: "Could not update. Showing the last saved card. Tap to retry.",
+            cardUpdateAuthFailed: "Could not update the card. Sign out and back in to update.",
             signedOutSessionExpired:
                 "You were signed out because your login has expired or is no longer valid. Please sign in again with your email and code.",
             signedOutProfileInactive:

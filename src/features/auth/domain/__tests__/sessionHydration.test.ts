@@ -40,14 +40,15 @@ describe("resolveHydrationPrecheck", () => {
         expect(outcome).toEqual({ kind: "refresh", cachedUser: null })
     })
 
-    it("flags inconsistent state when a login marker survives without credentials", () => {
+    it("keeps the cached card when a login marker survives without credentials", () => {
+        const cachedUser = createUser()
         const outcome = resolveHydrationPrecheck({
             hasStoredCredentials: false,
-            cachedUser: createUser(),
+            cachedUser,
             hasLoginMarker: true,
         })
 
-        expect(outcome).toEqual({ kind: "inconsistent-state-clear" })
+        expect(outcome).toEqual({ kind: "refresh", cachedUser })
     })
 
     it("flags inconsistent state for a marker without credentials or cache", () => {
@@ -87,8 +88,15 @@ describe("resolveHydrationErrorOutcome", () => {
     const transientError = () =>
         createAuthServiceError({ code: "NETWORK_ERROR", message: "Network error." })
 
-    it("clears the session on a definitive auth error, even with a cached user", () => {
-        const outcome = resolveHydrationErrorOutcome(invalidAuthError(), createUser())
+    it("keeps the cached user on a definitive auth error (never throw users out)", () => {
+        const cachedUser = createUser()
+        const outcome = resolveHydrationErrorOutcome(invalidAuthError(), cachedUser)
+
+        expect(outcome).toEqual({ kind: "keep-cached-user", cachedUser })
+    })
+
+    it("clears the session on a definitive auth error when there is no cached user", () => {
+        const outcome = resolveHydrationErrorOutcome(invalidAuthError(), null)
 
         expect(outcome).toEqual({ kind: "clear-session" })
     })

@@ -12,8 +12,8 @@ export interface HydrationSnapshot {
 }
 
 export type HydrationPrecheckOutcome =
-    // A login marker without credentials means the SecureStore entry vanished
-    // after a successful login: report a diagnostic and clear the session.
+    // A login marker without credentials or a cached card: nothing left to show,
+    // report a diagnostic and clear the session. (With a cached card we keep it.)
     | { kind: "inconsistent-state-clear" }
     // Credentials exist: optionally show the cached card, then refresh from /me.
     | { kind: "refresh"; cachedUser: User | null }
@@ -21,11 +21,12 @@ export type HydrationPrecheckOutcome =
     | { kind: "signed-out" }
 
 export const resolveHydrationPrecheck = (snapshot: HydrationSnapshot): HydrationPrecheckOutcome => {
-    if (!snapshot.hasStoredCredentials && snapshot.hasLoginMarker) {
+    if (!snapshot.hasStoredCredentials && snapshot.hasLoginMarker && !snapshot.cachedUser) {
         return { kind: "inconsistent-state-clear" }
     }
 
-    if (snapshot.hasStoredCredentials) {
+    // Never throw a user with a cached card out; a failed refresh keeps the card.
+    if (snapshot.hasStoredCredentials || (snapshot.hasLoginMarker && snapshot.cachedUser)) {
         return { kind: "refresh", cachedUser: snapshot.cachedUser }
     }
 
@@ -33,9 +34,9 @@ export const resolveHydrationPrecheck = (snapshot: HydrationSnapshot): Hydration
 }
 
 export type HydrationErrorOutcome =
-    // Definitive auth rejection: report a diagnostic and clear the session.
+    // Definitive auth rejection and no cached card to show: clear the session.
     | { kind: "clear-session" }
-    // Transient failure with a cached card: keep the user logged in on it.
+    // Any failure with a cached card: keep the user logged in on it.
     | { kind: "keep-cached-user"; cachedUser: User }
     // Anything else: end up signed out, surfacing the error message.
     | { kind: "signed-out-with-error" }
@@ -44,12 +45,12 @@ export const resolveHydrationErrorOutcome = (
     error: unknown,
     cachedUser: User | null,
 ): HydrationErrorOutcome => {
-    if (isInvalidAuthError(error)) {
-        return { kind: "clear-session" }
+    if (cachedUser && (isInvalidAuthError(error) || isTransientAuthError(error))) {
+        return { kind: "keep-cached-user", cachedUser }
     }
 
-    if (isTransientAuthError(error) && cachedUser) {
-        return { kind: "keep-cached-user", cachedUser }
+    if (isInvalidAuthError(error)) {
+        return { kind: "clear-session" }
     }
 
     return { kind: "signed-out-with-error" }
