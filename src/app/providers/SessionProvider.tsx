@@ -24,11 +24,13 @@ import {
     clearLoginMarker,
     createMobileCardSession,
     getCachedUser,
-    getInternkortInformation,
+    getInternkortInformationWithRenewal,
     getSavedCredentials,
     getSavedLoginMarker,
+    getSavedRefreshToken,
     saveCredentials,
     saveLoginMarker,
+    saveRefreshToken,
 } from "@/features/auth/data/authRepository"
 import { isInvalidAuthError, toAuthServiceError } from "@/features/auth/domain/authError"
 import {
@@ -115,7 +117,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
 
             for (let attempt = 0; ; attempt += 1) {
                 try {
-                    const user = await getInternkortInformation(accessToken)
+                    const user = await getInternkortInformationWithRenewal(accessToken)
                     await saveLoginMarker(user.id)
                     setState(previous =>
                         previous.status === "authenticated"
@@ -176,14 +178,16 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             let accessToken: string | null = null
 
             try {
-                const [credentials, cachedUser, loginMarker] = await Promise.all([
+                const [credentials, cachedUser, loginMarker, refreshToken] = await Promise.all([
                     getSavedCredentials(),
                     getCachedUser(),
                     getSavedLoginMarker(),
+                    getSavedRefreshToken(),
                 ])
                 accessToken = credentials.accessToken
                 snapshot = {
-                    hasStoredCredentials: Boolean(credentials.accessToken),
+                    // A refresh token alone can still restore the session.
+                    hasStoredCredentials: Boolean(credentials.accessToken || refreshToken),
                     cachedUser,
                     hasLoginMarker: Boolean(loginMarker),
                 }
@@ -222,7 +226,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
                     await removeStoredValue(ANONYMOUS_MODE_STORAGE_KEY)
                 }
 
-                const hydratedUser = await getInternkortInformation(accessToken ?? "")
+                const hydratedUser = await getInternkortInformationWithRenewal(accessToken ?? "")
                 if (precheck.cachedUser) {
                     void emitOperationalDiagnostic("cache_fallback_recovered")
                 }
@@ -290,6 +294,7 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             try {
                 const session = await createMobileCardSession(email, accessToken)
                 await saveCredentials(email, session.sessionToken)
+                if (session.refreshToken) await saveRefreshToken(session.refreshToken)
                 await saveLoginMarker(session.user.id)
                 await cacheAuthenticatedCard(session.rawCard)
                 setState({ status: "authenticated", user: session.user, staleFromCache: false })

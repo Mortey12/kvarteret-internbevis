@@ -12,7 +12,11 @@ import {
     SESSION_STORAGE_KEYS,
     setSessionValue,
 } from "@/core/storage/sessionStorage"
-import { createAuthServiceError, toAuthServiceError } from "@/features/auth/domain/authError"
+import {
+    createAuthServiceError,
+    isInvalidAuthError,
+    toAuthServiceError,
+} from "@/features/auth/domain/authError"
 import {
     mobileCardResponseApiSchema,
     mobileCardSessionRequestSchema,
@@ -149,22 +153,21 @@ export const requestAccessToken = async (email: string): Promise<boolean> => {
     })
 }
 
-export const createMobileCardSession = async (
-    email: string,
-    accessToken: string,
-): Promise<{
+interface MobileCardSessionResult {
     sessionToken: string
+    refreshToken: string | null
     user: User
     rawCard: unknown
-}> => {
-    const requestBody = mobileCardSessionRequestSchema.parse({ email, accessCode: accessToken })
+}
 
+const requestMobileCardSession = async (
+    path: string,
+    body: Record<string, unknown>,
+    invalidAuthMessage: string,
+): Promise<MobileCardSessionResult> => {
     let response: Response
     try {
-        response = await postAuthJson(`sessions${INCLUDE_ROLE_HISTORY_QUERY}`, {
-            email: requestBody.email,
-            access_code: requestBody.accessCode,
-        })
+        response = await postAuthJson(`${path}${INCLUDE_ROLE_HISTORY_QUERY}`, body)
     } catch (error) {
         throw createAuthServiceError({
             code: "NETWORK_ERROR",
@@ -216,7 +219,7 @@ export const createMobileCardSession = async (
     if (response.status === 401) {
         throw createAuthServiceError({
             code: "INVALID_AUTH",
-            message: "Invalid email or access code.",
+            message: invalidAuthMessage,
             status: response.status,
         })
     }
@@ -236,6 +239,18 @@ export const createMobileCardSession = async (
         message: responseText || `Failed to create session: ${response.status}`,
         status: response.status,
     })
+}
+
+export const createMobileCardSession = async (
+    email: string,
+    accessToken: string,
+): Promise<MobileCardSessionResult> => {
+    const requestBody = mobileCardSessionRequestSchema.parse({ email, accessCode: accessToken })
+    return requestMobileCardSession(
+        "sessions",
+        { email: requestBody.email, access_code: requestBody.accessCode },
+        "Invalid email or access code.",
+    )
 }
 
 export const getInternkortInformation = async (sessionToken: string): Promise<User> => {
@@ -323,10 +338,65 @@ export const getInternkortInformation = async (sessionToken: string): Promise<Us
     })
 }
 
+// Trades the stored refresh token for a new session token, so an expired or
+// rejected session does not force the user through the email-code login again.
+// Returns null when there is no refresh token or the server rejected it (the
+// dead token is then dropped); network/server failures throw like any request.
+const renewSessionWithRefreshToken = async (): Promise<User | null> => {
+    const refreshToken = await getSavedRefreshToken()
+    if (!refreshToken) {
+        return null
+    }
+
+    let session: MobileCardSessionResult
+    try {
+        session = await requestMobileCardSession(
+            "sessions/refresh",
+            { refresh_token: refreshToken },
+            "Refresh token rejected.",
+        )
+    } catch (error) {
+        if (isInvalidAuthError(error)) {
+            await removeSessionValue(SESSION_STORAGE_KEYS.refreshToken)
+            return null
+        }
+        throw error
+    }
+
+    await saveSessionToken(session.sessionToken)
+    await cacheAuthenticatedCard(session.rawCard)
+    await saveLoginMarker(session.user.id)
+    return session.user
+}
+
+// Like getInternkortInformation, but a 401 first tries the refresh token and
+// only surfaces the original 401 when renewal is impossible.
+export const getInternkortInformationWithRenewal = async (sessionToken: string): Promise<User> => {
+    try {
+        return await getInternkortInformation(sessionToken)
+    } catch (error) {
+        if (!isInvalidAuthError(error)) {
+            throw error
+        }
+        const renewedUser = await renewSessionWithRefreshToken()
+        if (!renewedUser) {
+            throw error
+        }
+        return renewedUser
+    }
+}
+
 export const saveCredentials = async (email: string, accessToken: string): Promise<void> => {
     await setSessionValue(SESSION_STORAGE_KEYS.email, email)
     await setSessionValue(SESSION_STORAGE_KEYS.accessToken, accessToken)
 }
+
+export const saveRefreshToken = async (refreshToken: string): Promise<void> => {
+    await setSessionValue(SESSION_STORAGE_KEYS.refreshToken, refreshToken)
+}
+
+export const getSavedRefreshToken = async (): Promise<string | null> =>
+    getSessionValue(SESSION_STORAGE_KEYS.refreshToken)
 
 export const saveSessionToken = async (accessToken: string): Promise<void> => {
     await setSessionValue(SESSION_STORAGE_KEYS.accessToken, accessToken)
@@ -348,6 +418,7 @@ export const clearCredentials = async (): Promise<void> => {
     await Promise.all([
         removeSessionValue(SESSION_STORAGE_KEYS.email),
         removeSessionValue(SESSION_STORAGE_KEYS.accessToken),
+        removeSessionValue(SESSION_STORAGE_KEYS.refreshToken),
     ])
 }
 

@@ -84,6 +84,7 @@ export const mobileCardResponseApiSchema = z.object({
 
 export const mobileCardSessionApiSchema = z.object({
     session_token: z.string().min(1),
+    refresh_token: z.string().min(1).nullable().optional(),
     card: mobileCardResponseApiSchema,
 })
 
@@ -147,12 +148,14 @@ export function parseInternkortInformation(payload: unknown): User {
 
 export function parseMobileCardSession(payload: unknown): {
     sessionToken: string
+    refreshToken: string | null
     user: User
     rawCard: z.infer<typeof mobileCardResponseApiSchema>
 } {
     const parsed = mobileCardSessionApiSchema.parse(payload)
     return {
         sessionToken: parsed.session_token,
+        refreshToken: parsed.refresh_token ?? null,
         user: parseInternkortInformation(parsed.card),
         rawCard: parsed.card,
     }
