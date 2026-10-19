@@ -56,6 +56,12 @@ export const translations = {
             kontrollRole: "Rolle",
             kontrollValidProof: "GYLDIG BEVIS",
             kontrollInvalidProof: "UGYLDIG BEVIS",
+            signedOutSessionExpired:
+                "Du ble logget ut fordi innloggingen din er utløpt eller ikke lenger gyldig. Logg inn på nytt med e-post og kode.",
+            signedOutProfileInactive:
+                "Du ble logget ut fordi profilen din ikke finnes eller ikke er aktiv i personaldatabasen. Kontakt lederen din eller E-tjenesten.",
+            signedOutTrialEnded:
+                "Du ble logget ut fordi prøvetiden din er avsluttet. Du må avtale kontrakt med din leder, eller din leder må opprette din profil i personaldatabasen.",
             probationExpired:
                 "Din prøvetid er utløpt. Du må avtale kontrakt med din leder, eller din leder må opprette din profil i personaldatabasen.",
             kontrollLoginPrompt: "Logg inn for å vise internbeviset ditt.",
@@ -272,6 +278,12 @@ export const translations = {
             kontrollRole: "Role",
             kontrollValidProof: "VALID ID",
             kontrollInvalidProof: "INVALID ID",
+            signedOutSessionExpired:
+                "You were signed out because your login has expired or is no longer valid. Please sign in again with your email and code.",
+            signedOutProfileInactive:
+                "You were signed out because your profile does not exist or is not active in the personnel database. Contact your manager or E-tjenesten.",
+            signedOutTrialEnded:
+                "You were signed out because your probation period has ended. You must agree a contract with your manager, or your manager must create your profile in the personnel database.",
             probationExpired:
                 "Your probation period has expired. You must agree a contract with your manager, or your manager must create your profile in the personnel database.",
             kontrollLoginPrompt: "Log in to show your ID.",

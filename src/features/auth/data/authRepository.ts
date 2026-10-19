@@ -306,9 +306,11 @@ export const getInternkortInformation = async (sessionToken: string): Promise<Us
     }
 
     if (response.status === 401) {
+        // The backend's `detail` says why (expired token, profile gone, trial ended).
         throw createAuthServiceError({
             code: "INVALID_AUTH",
-            message: "Session expired. Please sign in again.",
+            message:
+                (await readResponseMessage(response)) || "Session expired. Please sign in again.",
             status: response.status,
         })
     }

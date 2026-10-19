@@ -9,6 +9,7 @@ import {
     Platform,
     ScrollView,
     useWindowDimensions,
+    View,
 } from "react-native"
 import { useSession } from "@/app/providers/SessionProvider"
 import { extractAccessTokenFromManualInput } from "@/core/linking/deepLinkParser"
@@ -23,13 +24,14 @@ import { useTokenLogin } from "@/features/auth/vm/useTokenLogin"
 import { createDemoUser } from "@/shared/types/user"
 import { EtjenestenFooter } from "@/shared/ui/EtjenestenFooter"
 import { SafeAreaView, useSafeAreaInsets } from "@/shared/ui/interop"
+import { Text } from "@/shared/ui/Text"
 
 type LoginMode = "email" | "verify"
 
 export const LoginScreen = (): React.JSX.Element => {
     const { t } = useTranslation()
     const router = useRouter()
-    const { user, isAnonymous, setUser, continueAnonymously } = useSession()
+    const { user, isAnonymous, error: signedOutReason, setUser, continueAnonymously } = useSession()
     const insets = useSafeAreaInsets()
     const { width } = useWindowDimensions()
     const isCompactWidth = width < 390
@@ -155,6 +157,17 @@ export const LoginScreen = (): React.JSX.Element => {
                     showsVerticalScrollIndicator={false}
                 >
                     <LoginHero isCompactWidth={isCompactWidth} />
+
+                    {mode === "email" && signedOutReason ? (
+                        <View
+                            accessibilityRole="alert"
+                            className="w-full max-w-xl border-2 border-editorial-invalid bg-surface px-4 py-3"
+                        >
+                            <Text className="text-base leading-5 text-editorial-ink font-semibold">
+                                {signedOutReason}
+                            </Text>
+                        </View>
+                    ) : null}
 
                     {mode === "email" ? (
                         <LoginForm
