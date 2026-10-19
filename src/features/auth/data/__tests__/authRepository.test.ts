@@ -8,6 +8,7 @@ jest.mock("@/core/storage/sessionStorage", () => ({
     SESSION_STORAGE_KEYS: {
         email: "email",
         accessToken: "accessToken",
+        refreshToken: "refreshToken",
         deepLinkToken: "deep_link_token",
     },
     getSessionValue: jest.fn(),
@@ -16,12 +17,13 @@ jest.mock("@/core/storage/sessionStorage", () => ({
 }))
 
 import { getStoredJson, setStoredJson } from "@/core/storage/asyncStorage"
-import { setSessionValue } from "@/core/storage/sessionStorage"
+import { getSessionValue, removeSessionValue, setSessionValue } from "@/core/storage/sessionStorage"
 import {
     cacheAuthenticatedCard,
     createMobileCardSession,
     getCachedUser,
     getInternkortInformation,
+    getInternkortInformationWithRenewal,
 } from "@/features/auth/data/authRepository"
 
 describe("getInternkortInformation", () => {
@@ -224,5 +226,74 @@ describe("getCachedUser", () => {
         ;(getStoredJson as jest.Mock).mockResolvedValue(null)
 
         expect(await getCachedUser()).toBeNull()
+    })
+})
+
+describe("getInternkortInformationWithRenewal", () => {
+    const originalFetch = global.fetch
+    const card = {
+        person_id: 12,
+        first_name: "Ada",
+        last_name: "Lovelace",
+        birth_date: null,
+        created_at: "2026-03-01T12:00:00Z",
+        valid_until: "2026-06-01T12:00:00Z",
+        photo_url: null,
+        pingvin_points: 8,
+        active_roles: [],
+        word_of_the_day: "pingvin",
+    }
+    const response = (status: number, body: unknown) => ({
+        headers: { get: (name: string) => (name === "content-type" ? "application/json" : null) },
+        json: async () => body,
+        status,
+    })
+
+    beforeEach(() => {
+        global.fetch = jest.fn() as typeof fetch
+        jest.clearAllMocks()
+    })
+
+    afterAll(() => {
+        global.fetch = originalFetch
+    })
+
+    it("swaps the refresh token for a new session when /me returns 401", async () => {
+        ;(getSessionValue as jest.Mock).mockResolvedValue("refresh-1")
+        ;(global.fetch as jest.Mock)
+            .mockResolvedValueOnce(response(401, { detail: "Unknown session token." }))
+            .mockResolvedValueOnce(response(200, { session_token: "new-session", card }))
+
+        const user = await getInternkortInformationWithRenewal("old-session")
+
+        expect(user.id).toBe(12)
+        expect(global.fetch).toHaveBeenLastCalledWith(
+            "https://personal.samfunnetibergen.no/api/v1/mobile-card/sessions/refresh?include_role_history=true",
+            expect.objectContaining({ body: JSON.stringify({ refresh_token: "refresh-1" }) }),
+        )
+        expect(setSessionValue).toHaveBeenCalledWith("accessToken", "new-session")
+    })
+
+    it("drops a rejected refresh token and rethrows the original 401", async () => {
+        ;(getSessionValue as jest.Mock).mockResolvedValue("refresh-1")
+        ;(global.fetch as jest.Mock)
+            .mockResolvedValueOnce(response(401, { detail: "Unknown session token." }))
+            .mockResolvedValueOnce(response(401, { detail: "Invalid refresh token." }))
+
+        await expect(getInternkortInformationWithRenewal("old-session")).rejects.toMatchObject({
+            code: "INVALID_AUTH",
+            message: "Unknown session token.",
+        })
+        expect(removeSessionValue).toHaveBeenCalledWith("refreshToken")
+    })
+
+    it("does not try to renew without a refresh token", async () => {
+        ;(getSessionValue as jest.Mock).mockResolvedValue(null)
+        ;(global.fetch as jest.Mock).mockResolvedValueOnce(response(401, { detail: "nope" }))
+
+        await expect(getInternkortInformationWithRenewal("old-session")).rejects.toMatchObject({
+            code: "INVALID_AUTH",
+        })
+        expect(global.fetch).toHaveBeenCalledTimes(1)
     })
 })
