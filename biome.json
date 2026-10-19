@@ -30,6 +30,9 @@
             "recommended": true,
             "complexity": {
                 "useArrowFunction": "warn"
+            },
+            "style": {
+                "useImportType": "off"
             }
         }
     },

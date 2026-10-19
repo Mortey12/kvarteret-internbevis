@@ -78,3 +78,14 @@ describe("semester grace periods", () => {
         expect(isIdVerificationValid(user, new Date("2026-08-31T12:00:00+02:00"))).toBe(false)
     })
 })
+
+describe("probation expired", () => {
+    test("is invalid even with roles or pingvin points", () => {
+        const user = createUser({ pingvinPoengSum: 99, proveperiodeUtlopt: true })
+        expect(getIdVerificationStatus(user)).toEqual({
+            isValid: false,
+            reason: "probation-expired",
+            tier: 0,
+        })
+    })
+})

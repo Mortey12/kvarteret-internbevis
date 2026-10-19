@@ -289,11 +289,25 @@ export const ProfileScreen = (): React.JSX.Element => {
                             imageUrl={user.bildeUrl}
                         />
 
-                        <VerificationStatusCard
-                            tierLabel={tierLabel}
-                            isValid={isValid}
-                            onTierPress={() => setAvatarAnimationTrigger(previous => previous + 1)}
-                        />
+                        {status?.reason === "probation-expired" ? (
+                            <Card
+                                className="w-full border border-editorial-invalid px-4 py-5"
+                                effect="liquid"
+                                variant="grouped"
+                            >
+                                <Text className="text-lg leading-6 font-semibold text-editorial-ink">
+                                    {t("probationExpired")}
+                                </Text>
+                            </Card>
+                        ) : (
+                            <VerificationStatusCard
+                                tierLabel={tierLabel}
+                                isValid={isValid}
+                                onTierPress={() =>
+                                    setAvatarAnimationTrigger(previous => previous + 1)
+                                }
+                            />
+                        )}
 
                         <SecondaryDetailCard label={t("wordOfTheDay")} value={wordOfDayValue} />
                     </>
