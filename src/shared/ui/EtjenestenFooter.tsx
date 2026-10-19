@@ -1,9 +1,18 @@
+import Constants from "expo-constants"
+import * as Updates from "expo-updates"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { TouchableOpacity, View } from "react-native"
 import { useSession } from "@/app/providers/SessionProvider"
 import { openExternalUrl } from "@/core/linking/linkClient"
 import { Text } from "@/shared/ui/Text"
+
+// Lets support check which build/OTA update a user is running.
+const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ?? Constants.expoConfig?.android?.versionCode
+const buildLabel = `v${Constants.expoConfig?.version ?? "?"} (${buildNumber ?? "?"}) · ${
+    Updates.updateId ? Updates.updateId.slice(0, 8) : "embedded"
+}`
 
 export const EtjenestenFooter = (): React.JSX.Element => {
     const { t } = useTranslation()
@@ -48,6 +57,9 @@ export const EtjenestenFooter = (): React.JSX.Element => {
                     </>
                 ) : null}
             </View>
+            <Text className="pt-1 text-xs text-text-secondary" selectable>
+                {buildLabel}
+            </Text>
         </View>
     )
 }
