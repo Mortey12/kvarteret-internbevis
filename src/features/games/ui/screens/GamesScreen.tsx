@@ -18,6 +18,10 @@ import {
     parseStoredChessTimeControl,
     updateDraftChessTimeControlState,
 } from "@/features/games/domain/chessTimeControl"
+import { DiceFullScreen } from "@/features/games/ui/components/DiceFullScreen"
+import { Die3D } from "@/features/games/ui/components/Die3D"
+import { SpiritLevelPanel } from "@/features/games/ui/components/SpiritLevelPanel"
+import { getDiceResultLabel, getDiceTypeLabel } from "@/features/games/ui/diceLabels"
 import { useChessTimer } from "@/features/games/vm/useChessTimer"
 import { COMMON_DICE_TYPES, useDiceRoll } from "@/features/games/vm/useDiceRoll"
 import { useThemeRuntimeColors } from "@/shared/theme/use-theme-runtime-colors"
@@ -27,7 +31,7 @@ import { EtjenestenFooter } from "@/shared/ui/EtjenestenFooter"
 import { Text } from "@/shared/ui/Text"
 import { cn } from "@/shared/utils/cn"
 
-type GameMode = "d6" | "chess"
+type GameMode = "d6" | "chess" | "level"
 type MaterialIconName = React.ComponentProps<typeof MaterialIcons>["name"]
 
 const DEFAULT_CHESS_TIME_CONTROL = getDefaultChessTimeControl()
@@ -195,12 +199,25 @@ export const GamesScreen = (): React.JSX.Element => {
     const headerHeight = useHeaderHeight()
     const { top: safeTop } = useSafeAreaInsets()
     const { width: windowWidth } = useWindowDimensions()
-    const { stateDanger, surface, surfaceMuted, textPrimary, textSecondary } =
+    const { brandPrimary, stateDanger, surface, surfaceMuted, textPrimary, textSecondary } =
         useThemeRuntimeColors()
 
     const [mode, setMode] = useState<GameMode>("chess")
-    const { selectedDiceType, diceValue, diceRollCount, isRolling, selectDiceType, rollDice } =
-        useDiceRoll()
+    const [isDiceFullScreen, setIsDiceFullScreen] = useState(false)
+    const {
+        selectedDiceType,
+        diceValues,
+        diceRollCount,
+        rollId,
+        isRolling,
+        selectDiceType,
+        rollDice,
+        finishRoll,
+        addDie,
+        removeDie,
+    } = useDiceRoll()
+    // Outside full screen only the first die is on show.
+    const diceValue = diceValues[0]
     const [timeControlState, setTimeControlState] = useState<ChessTimeControlState>({
         appliedTimeControl: DEFAULT_CHESS_TIME_CONTROL,
         draftTimeControl: DEFAULT_CHESS_TIME_CONTROL,
@@ -275,6 +292,7 @@ export const GamesScreen = (): React.JSX.Element => {
     const tabs = [
         { mode: "chess" as const, label: t("gamesChessTimer") },
         { mode: "d6" as const, label: t("gamesDice") },
+        { mode: "level" as const, label: t("gamesLevel") },
     ]
 
     const timerIsPristine = isChessTimerPristine(timerState, timeControlState.appliedTimeControl)
@@ -303,6 +321,7 @@ export const GamesScreen = (): React.JSX.Element => {
     const blackTimerBorderColor = blackTimerActive ? stateDanger : inactiveTimerBorderColor
     const whiteTimerBorderColor = whiteTimerActive ? stateDanger : inactiveTimerBorderColor
     const effectiveTop = Math.max(headerHeight, safeTop)
+    const dieSize = Math.min(Math.max(windowWidth - 120, 160), 240)
     const inlineTabsWidth = Math.min(Math.max(windowWidth - 48, 220), 320)
 
     const handleOpenTimeControl = useCallback((): void => {
@@ -328,7 +347,9 @@ export const GamesScreen = (): React.JSX.Element => {
                     width={inlineTabsWidth}
                 />
             </View>
-            {mode === "d6" ? (
+            {mode === "level" ? (
+                <SpiritLevelPanel active />
+            ) : mode === "d6" ? (
                 <ScrollView
                     className="flex-1"
                     contentContainerClassName="flex-grow gap-4 p-4"
@@ -361,7 +382,7 @@ export const GamesScreen = (): React.JSX.Element => {
                                                     selected ? "text-surface" : null,
                                                 )}
                                             >
-                                                {`d${diceType}`}
+                                                {getDiceTypeLabel(t, diceType)}
                                             </Text>
                                         </Pressable>
                                     )
@@ -373,7 +394,44 @@ export const GamesScreen = (): React.JSX.Element => {
                             effect="liquid"
                             variant="elevated"
                         >
-                            <Text className="text-center text-7xl font-bold">{diceValue}</Text>
+                            {isDiceFullScreen ? (
+                                // Only one die may report a landed roll at a time.
+                                <View style={{ width: dieSize, height: dieSize }} />
+                            ) : (
+                                <Pressable
+                                    accessibilityHint={t("gamesRollDie", {
+                                        die: getDiceTypeLabel(t, selectedDiceType),
+                                    })}
+                                    accessibilityLabel={
+                                        isRolling
+                                            ? getDiceTypeLabel(t, selectedDiceType)
+                                            : getDiceResultLabel(t, selectedDiceType, [diceValue])
+                                    }
+                                    accessibilityRole="button"
+                                    onPress={rollDice}
+                                >
+                                    <Die3D
+                                        bodyColor={brandPrimary}
+                                        numeralColor={surface}
+                                        onRollSettled={finishRoll}
+                                        rollId={rollId}
+                                        diceType={selectedDiceType}
+                                        size={dieSize}
+                                        value={diceValue}
+                                    />
+                                </Pressable>
+                            )}
+                            <Pressable
+                                accessibilityLabel={t("gamesDiceFullScreen")}
+                                accessibilityRole="button"
+                                className="absolute right-3 top-3 h-10 w-10 items-center justify-center rounded-full"
+                                hitSlop={8}
+                                onPress={() => {
+                                    setIsDiceFullScreen(true)
+                                }}
+                            >
+                                <MaterialIcons color={textSecondary} name="fullscreen" size={26} />
+                            </Pressable>
                             <Text className="text-center text-sm text-text-secondary">
                                 {t("gamesDiceRolls", { count: diceRollCount })}
                             </Text>
@@ -381,11 +439,25 @@ export const GamesScreen = (): React.JSX.Element => {
 
                         <Button onPress={rollDice}>
                             <Text className="text-base leading-5 font-semibold text-surface">
-                                {t("gamesRollDie", { die: `d${selectedDiceType}` })}
+                                {t("gamesRollDie", { die: getDiceTypeLabel(t, selectedDiceType) })}
                             </Text>
                         </Button>
                     </Card>
                     <EtjenestenFooter />
+                    <DiceFullScreen
+                        isRolling={isRolling}
+                        onClose={() => {
+                            setIsDiceFullScreen(false)
+                        }}
+                        onRoll={rollDice}
+                        onRollSettled={finishRoll}
+                        rollId={rollId}
+                        diceType={selectedDiceType}
+                        onAddDie={addDie}
+                        onRemoveDie={removeDie}
+                        values={diceValues}
+                        visible={isDiceFullScreen}
+                    />
                 </ScrollView>
             ) : (
                 <View className="flex-1 gap-4 px-4 pb-4 pt-2">
