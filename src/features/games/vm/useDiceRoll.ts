@@ -1,113 +1,75 @@
-import { useCallback, useRef, useState } from "react"
-import {
-    cancelAnimation,
-    Easing,
-    runOnJS,
-    useAnimatedReaction,
-    useSharedValue,
-    withTiming,
-} from "react-native-reanimated"
+import { useCallback, useState } from "react"
+import { DiceType, getDiceTypeSides, MAX_DICE_COUNT } from "@/features/games/domain/diceType"
+import { triggerSoftImpactHaptic } from "@/shared/utils/haptics"
 
-export type DiceType = 4 | 6 | 8 | 10 | 12 | 20
+export { COMMON_DICE_TYPES, type DiceType, MAX_DICE_COUNT } from "@/features/games/domain/diceType"
 
-export const COMMON_DICE_TYPES: readonly DiceType[] = [4, 6, 8, 10, 12, 20]
-
-const DICE_SPIN_DURATION_MS = 250
-const DICE_SPIN_FRAMES = 8
-
-const rollDie = (sides: DiceType): number => Math.floor(Math.random() * sides) + 1
+const rollDie = (diceType: DiceType): number =>
+    Math.floor(Math.random() * getDiceTypeSides(diceType)) + 1
 
 interface UseDiceRollResult {
     selectedDiceType: DiceType
-    diceValue: number
+    /** One value per die on the table; always at least one. */
+    diceValues: readonly number[]
     diceRollCount: number
+    /** Increments on every roll; the die views animate when it changes. */
+    rollId: number
     isRolling: boolean
     selectDiceType: (diceType: DiceType) => void
+    addDie: () => void
+    removeDie: () => void
     rollDice: () => void
+    /** Called by the die view once its spin has landed. */
+    finishRoll: () => void
 }
 
 export const useDiceRoll = (): UseDiceRollResult => {
     const [selectedDiceType, setSelectedDiceType] = useState<DiceType>(6)
-    const [diceValue, setDiceValue] = useState(1)
+    const [diceValues, setDiceValues] = useState<readonly number[]>([1])
     const [diceRollCount, setDiceRollCount] = useState(0)
+    const [rollId, setRollId] = useState(0)
     const [isRolling, setIsRolling] = useState(false)
-
-    const currentRollTokenRef = useRef(0)
-    const currentRollSidesRef = useRef<DiceType>(6)
-    const currentFinalValueRef = useRef(1)
-
-    const spinProgress = useSharedValue(0)
-    const spinToken = useSharedValue(0)
-    const frameIndex = useSharedValue(0)
-
-    const updateRandomDuringSpin = useCallback((token: number): void => {
-        if (token !== currentRollTokenRef.current) return
-        setDiceValue(rollDie(currentRollSidesRef.current))
-    }, [])
-
-    const finalizeRoll = useCallback((token: number): void => {
-        if (token !== currentRollTokenRef.current) return
-
-        setDiceValue(currentFinalValueRef.current)
-        setDiceRollCount(previous => previous + 1)
-        setIsRolling(false)
-    }, [])
-
-    useAnimatedReaction(
-        () => ({
-            progress: spinProgress.value,
-            token: spinToken.value,
-        }),
-        ({ progress, token }) => {
-            if (token === 0) return
-
-            const nextFrame = Math.floor(progress * DICE_SPIN_FRAMES)
-            if (nextFrame > frameIndex.value && progress < 1) {
-                frameIndex.value = nextFrame
-                runOnJS(updateRandomDuringSpin)(token)
-            }
-        },
-    )
 
     const selectDiceType = useCallback((diceType: DiceType): void => {
         setSelectedDiceType(diceType)
-        setDiceValue(previous => Math.min(previous, diceType))
+        setDiceValues(previous =>
+            previous.map(value => Math.min(value, getDiceTypeSides(diceType))),
+        )
+    }, [])
+
+    const addDie = useCallback((): void => {
+        setDiceValues(previous =>
+            previous.length >= MAX_DICE_COUNT ? previous : [...previous, rollDie(selectedDiceType)],
+        )
+    }, [selectedDiceType])
+
+    const removeDie = useCallback((): void => {
+        setDiceValues(previous => (previous.length <= 1 ? previous : previous.slice(0, -1)))
     }, [])
 
     const rollDice = useCallback((): void => {
-        const nextToken = currentRollTokenRef.current + 1
-        const finalValue = rollDie(selectedDiceType)
-        currentRollTokenRef.current = nextToken
-        currentRollSidesRef.current = selectedDiceType
-        currentFinalValueRef.current = finalValue
-
+        // The results are decided up front; the animation only reveals them.
+        setDiceValues(previous => previous.map(() => rollDie(selectedDiceType)))
+        setRollId(previous => previous + 1)
         setIsRolling(true)
-        setDiceValue(rollDie(selectedDiceType))
+    }, [selectedDiceType])
 
-        cancelAnimation(spinProgress)
-        frameIndex.value = 0
-        spinToken.value = nextToken
-        spinProgress.value = 0
-        spinProgress.value = withTiming(
-            1,
-            {
-                duration: DICE_SPIN_DURATION_MS,
-                easing: Easing.out(Easing.cubic),
-            },
-            finished => {
-                if (finished) {
-                    runOnJS(finalizeRoll)(nextToken)
-                }
-            },
-        )
-    }, [selectedDiceType, spinProgress, frameIndex, spinToken, finalizeRoll])
+    const finishRoll = useCallback((): void => {
+        setDiceRollCount(previous => previous + 1)
+        setIsRolling(false)
+        void triggerSoftImpactHaptic()
+    }, [])
 
     return {
         selectedDiceType,
-        diceValue,
+        diceValues,
         diceRollCount,
+        rollId,
         isRolling,
         selectDiceType,
+        addDie,
+        removeDie,
         rollDice,
+        finishRoll,
     }
 }
