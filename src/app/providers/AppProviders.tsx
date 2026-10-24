@@ -1,4 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query"
+import { usePathname } from "expo-router"
 import * as Updates from "expo-updates"
 import React, { PropsWithChildren, useEffect, useMemo } from "react"
 import { AppState, LogBox } from "react-native"
@@ -13,6 +14,10 @@ import { useThemeRuntimeColors } from "@/shared/theme/use-theme-runtime-colors"
 import { BlurTargetProvider } from "@/shared/ui/blur/BlurTargetProvider"
 import { SafeAreaListener, SafeAreaProvider } from "@/shared/ui/interop"
 
+/** Routes where a reload would wipe a game in progress (a running chess clock, rolled dice). */
+const isGameRoute = (pathname: string): boolean =>
+    pathname.startsWith("/games") || pathname === "/chess-time-control"
+
 if (__DEV__) {
     // React Native 0.83 currently emits this native Animated warning during some iOS
     // header/sheet transitions even when no app-owned animated listener is missing.
@@ -22,13 +27,15 @@ if (__DEV__) {
 export const AppProviders = ({ children }: PropsWithChildren): React.JSX.Element => {
     const colors = useThemeRuntimeColors()
     const { isUpdatePending } = Updates.useUpdates()
+    const inGame = isGameRoute(usePathname())
 
-    // shortcut: reloads immediately, so an in-progress login form resets; upgrade to reload on background if that bites.
+    // Reload as soon as an update is downloaded, except mid-game: there it waits
+    // until the user leaves the games tab. Elsewhere an in-progress form still resets.
     useEffect(() => {
-        if (isUpdatePending) {
+        if (isUpdatePending && !inGame) {
             void Updates.reloadAsync()
         }
-    }, [isUpdatePending])
+    }, [isUpdatePending, inGame])
 
     // Check for (and download) an OTA update every time the app is opened/foregrounded;
     // the effect above then reloads. Failures are ignored: we simply retry next open.
