@@ -138,6 +138,18 @@ export const translations = {
             gamesLevelPitch: "Frem/bak",
             gamesLevelHint:
                 "Legg telefonen flatt. Pinnsvinet går nedover til du har den helt vannrett.",
+            gamesBeer: "Drikke",
+            gamesBeerReady: "Skål! Tipp telefonen for å drikke.",
+            gamesBeerDrinking: "Glugg glugg …",
+            gamesBeerEmpty: "Tomt! Burp \u{1F37A}",
+            gamesBeerUnavailable:
+                "Denne enheten har ikke bevegelsessensor, eller appen må oppdateres.",
+            gamesBeerGlassLabel: "Ølglass, {{percent}} prosent fullt",
+            gamesBeerRefill: "Fyll på",
+            gamesBeerCount_one: "{{count}} glass drukket",
+            gamesBeerCount_other: "{{count}} glass drukket",
+            gamesBeerHint:
+                "Hold telefonen som et glass og tipp den mot munnen. Rist for mer skum. Bare på liksom – drikk ansvarlig.",
             nerdStats: "Nerd stats",
             nerdStatsTitle: "Nerd stats",
             nerdStatsRuntimeSection: "Runtime",
@@ -387,6 +399,17 @@ export const translations = {
             gamesLevelPitch: "Front/back",
             gamesLevelHint:
                 "Lay the phone flat. The hedgehog walks downhill until you have it perfectly level.",
+            gamesBeer: "Drink",
+            gamesBeerReady: "Cheers! Tip the phone to drink.",
+            gamesBeerDrinking: "Glug glug …",
+            gamesBeerEmpty: "Empty! Burp \u{1F37A}",
+            gamesBeerUnavailable: "This device has no motion sensor, or the app needs an update.",
+            gamesBeerGlassLabel: "Beer glass, {{percent}} percent full",
+            gamesBeerRefill: "Refill",
+            gamesBeerCount_one: "{{count}} glass finished",
+            gamesBeerCount_other: "{{count}} glasses finished",
+            gamesBeerHint:
+                "Hold the phone like a glass and tip it toward your mouth. Shake for more foam. Just pretend – drink responsibly.",
             nerdStats: "Nerd stats",
             nerdStatsTitle: "Nerd stats",
             nerdStatsRuntimeSection: "Runtime",

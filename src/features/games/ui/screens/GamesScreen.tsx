@@ -18,6 +18,7 @@ import {
     parseStoredChessTimeControl,
     updateDraftChessTimeControlState,
 } from "@/features/games/domain/chessTimeControl"
+import { BeerGlassPanel } from "@/features/games/ui/components/BeerGlassPanel"
 import { DiceFullScreen } from "@/features/games/ui/components/DiceFullScreen"
 import { Die3D } from "@/features/games/ui/components/Die3D"
 import { SpiritLevelPanel } from "@/features/games/ui/components/SpiritLevelPanel"
@@ -31,7 +32,7 @@ import { EtjenestenFooter } from "@/shared/ui/EtjenestenFooter"
 import { Text } from "@/shared/ui/Text"
 import { cn } from "@/shared/utils/cn"
 
-type GameMode = "d6" | "chess" | "level"
+type GameMode = "d6" | "chess" | "level" | "beer"
 type MaterialIconName = React.ComponentProps<typeof MaterialIcons>["name"]
 
 const DEFAULT_CHESS_TIME_CONTROL = getDefaultChessTimeControl()
@@ -171,7 +172,7 @@ const GameModeTabs = ({
                     <Pressable
                         key={tab.mode}
                         className={cn(
-                            "flex-1 rounded-lg px-3 py-2",
+                            "flex-1 rounded-lg px-1 py-2",
                             isSelected ? "bg-editorial-surface" : "bg-transparent",
                         )}
                         onPress={() => onSelectMode(tab.mode)}
@@ -179,6 +180,8 @@ const GameModeTabs = ({
                         accessibilityState={{ selected: isSelected }}
                     >
                         <Text
+                            adjustsFontSizeToFit
+                            numberOfLines={1}
                             className={cn(
                                 "text-center text-sm font-semibold",
                                 isSelected ? null : "text-text-secondary",
@@ -293,6 +296,7 @@ export const GamesScreen = (): React.JSX.Element => {
         { mode: "chess" as const, label: t("gamesChessTimer") },
         { mode: "d6" as const, label: t("gamesDice") },
         { mode: "level" as const, label: t("gamesLevel") },
+        { mode: "beer" as const, label: t("gamesBeer") },
     ]
 
     const timerIsPristine = isChessTimerPristine(timerState, timeControlState.appliedTimeControl)
@@ -322,7 +326,7 @@ export const GamesScreen = (): React.JSX.Element => {
     const whiteTimerBorderColor = whiteTimerActive ? stateDanger : inactiveTimerBorderColor
     const effectiveTop = Math.max(headerHeight, safeTop)
     const dieSize = Math.min(Math.max(windowWidth - 120, 160), 240)
-    const inlineTabsWidth = Math.min(Math.max(windowWidth - 48, 220), 320)
+    const inlineTabsWidth = Math.min(Math.max(windowWidth - 32, 220), 400)
 
     const handleOpenTimeControl = useCallback((): void => {
         router.push("/chess-time-control")
@@ -347,7 +351,9 @@ export const GamesScreen = (): React.JSX.Element => {
                     width={inlineTabsWidth}
                 />
             </View>
-            {mode === "level" ? (
+            {mode === "beer" ? (
+                <BeerGlassPanel active />
+            ) : mode === "level" ? (
                 <SpiritLevelPanel active />
             ) : mode === "d6" ? (
                 <ScrollView
