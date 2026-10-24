@@ -18,6 +18,7 @@ import {
     parseStoredChessTimeControl,
     updateDraftChessTimeControlState,
 } from "@/features/games/domain/chessTimeControl"
+import { SpiritLevelPanel } from "@/features/games/ui/components/SpiritLevelPanel"
 import { useChessTimer } from "@/features/games/vm/useChessTimer"
 import { COMMON_DICE_TYPES, useDiceRoll } from "@/features/games/vm/useDiceRoll"
 import { useThemeRuntimeColors } from "@/shared/theme/use-theme-runtime-colors"
@@ -27,7 +28,7 @@ import { EtjenestenFooter } from "@/shared/ui/EtjenestenFooter"
 import { Text } from "@/shared/ui/Text"
 import { cn } from "@/shared/utils/cn"
 
-type GameMode = "d6" | "chess"
+type GameMode = "d6" | "chess" | "level"
 type MaterialIconName = React.ComponentProps<typeof MaterialIcons>["name"]
 
 const DEFAULT_CHESS_TIME_CONTROL = getDefaultChessTimeControl()
@@ -275,6 +276,7 @@ export const GamesScreen = (): React.JSX.Element => {
     const tabs = [
         { mode: "chess" as const, label: t("gamesChessTimer") },
         { mode: "d6" as const, label: t("gamesDice") },
+        { mode: "level" as const, label: t("gamesLevel") },
     ]
 
     const timerIsPristine = isChessTimerPristine(timerState, timeControlState.appliedTimeControl)
@@ -328,7 +330,9 @@ export const GamesScreen = (): React.JSX.Element => {
                     width={inlineTabsWidth}
                 />
             </View>
-            {mode === "d6" ? (
+            {mode === "level" ? (
+                <SpiritLevelPanel active />
+            ) : mode === "d6" ? (
                 <ScrollView
                     className="flex-1"
                     contentContainerClassName="flex-grow gap-4 p-4"
