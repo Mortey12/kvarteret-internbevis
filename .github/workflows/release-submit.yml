@@ -55,18 +55,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Load public App configuration
-        uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
-        with:
-          method: oidc
-          identity-id: aa215703-79a0-41d5-b109-425f93d4ae13
-          oidc-audience: https://secrets.samfunnetibergen.no
-          domain: https://secrets.samfunnetibergen.no
-          project-id: faedb783-c2d7-45aa-ae13-f6607c5cca93
-          env-slug: prod
-          secret-path: /app
-          export-type: env
-
       - name: Load App release credentials
         uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
         with:
@@ -159,30 +147,6 @@ jobs:
         with:
           eas-version: latest
           token: ${{ env.EXPO_TOKEN }}
-
-      - name: Sync public configuration to EAS production
-        run: |
-          set -euo pipefail
-          config_file="$(mktemp)"
-          trap 'rm -f "$config_file"' EXIT
-          python3 - "$config_file" <<'PYCONFIG'
-          import json
-          import os
-          import sys
-
-          names = [
-              'EXPO_PUBLIC_POSTHOG_API_KEY', 'EXPO_PUBLIC_POSTHOG_HOST',
-              'EXPO_PUBLIC_POSTHOG_DEBUG', 'EXPO_PUBLIC_POSTHOG_ENABLED',
-              'EXPO_PUBLIC_SANITY_PROJECT_ID', 'EXPO_PUBLIC_SANITY_DATASET',
-          ]
-          with open(sys.argv[1], 'w') as config:
-              for name in names:
-                  value = os.environ.get(name)
-                  if not value:
-                      raise SystemExit('Missing public config: ' + name)
-                  config.write(name + '=' + json.dumps(value) + '\n')
-          PYCONFIG
-          eas env:push --environment production --path "$config_file" --force
 
       - name: Build iOS production binary
         if: ${{ inputs.platform == 'all' || inputs.platform == 'ios' }}
