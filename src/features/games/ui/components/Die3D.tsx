@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react"
-import { Image, StyleSheet, View } from "react-native"
+import { Image, View, type ViewStyle } from "react-native"
 import Animated, {
     Easing,
     runOnJS,
@@ -217,15 +217,15 @@ const DieFaceView = ({
     return (
         <Animated.View
             pointerEvents="none"
-            style={[styles.layer, { width: size, height: size }, faceStyle]}
+            style={[layerStyle, { width: size, height: size }, faceStyle]}
         >
             {triangles.map(triangle => (
                 <Animated.View
                     key={triangle.key}
-                    style={[styles.triangle, triangle.style, shadeStyle]}
+                    style={[triangleStyle, triangle.style, shadeStyle]}
                 />
             ))}
-            <View style={[styles.layer, styles.numeral, { width: size, height: size }]}>
+            <View style={[layerStyle, numeralStyle, { width: size, height: size }]}>
                 {diceType === "animal" ? (
                     <Image
                         source={ANIMAL_ART[getDieAnimal(face.value)]}
@@ -326,25 +326,28 @@ export const Die3D = ({
     )
 }
 
-const styles = StyleSheet.create({
-    layer: {
-        position: "absolute",
-        left: 0,
-        top: 0,
-    },
-    numeral: {
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    triangle: {
-        position: "absolute",
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-        backgroundColor: "transparent",
-        borderStyle: "solid",
-        borderLeftColor: "transparent",
-        borderRightColor: "transparent",
-    },
-})
+// Style escape hatch: these sit on Reanimated views whose transforms and border
+// colours animate every frame, and the triangles rely on the transparent-border
+// trick, so they stay plain style objects rather than classNames.
+const layerStyle: ViewStyle = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+}
+
+const numeralStyle: ViewStyle = {
+    alignItems: "center",
+    justifyContent: "center",
+}
+
+const triangleStyle: ViewStyle = {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+    backgroundColor: "transparent",
+    borderStyle: "solid",
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+}
