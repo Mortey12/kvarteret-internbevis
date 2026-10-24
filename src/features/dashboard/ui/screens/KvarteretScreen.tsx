@@ -2,9 +2,9 @@ import { useIsFocused } from "@react-navigation/native"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "expo-router"
 import type React from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { ActivityIndicator, ScrollView, View } from "react-native"
+import { ActivityIndicator, AppState, RefreshControl, ScrollView, View } from "react-native"
 import { useLanguage } from "@/app/providers/LanguageProvider"
 import { useSession } from "@/app/providers/SessionProvider"
 import { getStoredJson, setStoredJson } from "@/core/storage/asyncStorage"
@@ -50,6 +50,7 @@ export const KvarteretScreen = (): React.JSX.Element => {
     const [filtersHydrated, setFiltersHydrated] = useState(false)
     const [filtersVisible, setFiltersVisible] = useState(false)
     const [restColumns, setRestColumns] = useState<1 | 2>(1)
+    const [isPullRefreshing, setIsPullRefreshing] = useState(false)
 
     useEffect(() => {
         const hydrateFilters = async (): Promise<void> => {
@@ -81,6 +82,24 @@ export const KvarteretScreen = (): React.JSX.Element => {
         staleTime: 30_000,
         retry: 1,
     })
+
+    // Fetch fresh events every time the app is opened again, not only on cold start.
+    useEffect(() => {
+        const subscription = AppState.addEventListener("change", nextState => {
+            if (nextState === "active") void refetchEvents()
+        })
+        return () => subscription.remove()
+    }, [refetchEvents])
+
+    // Only a pull shows the spinner; background refetches stay silent.
+    const handlePullRefresh = useCallback(async (): Promise<void> => {
+        setIsPullRefreshing(true)
+        try {
+            await refetchEvents()
+        } finally {
+            setIsPullRefreshing(false)
+        }
+    }, [refetchEvents])
 
     const { data: nowPlaying, isError: nowPlayingError } = useQuery({
         queryKey: ["home-now-playing"],
@@ -124,6 +143,13 @@ export const KvarteretScreen = (): React.JSX.Element => {
                 className="flex-1"
                 contentInsetAdjustmentBehavior="automatic"
                 contentContainerClassName="gap-6 px-4 pb-36 pt-2.5"
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isPullRefreshing}
+                        onRefresh={() => void handlePullRefresh()}
+                        tintColor={textPrimary}
+                    />
+                }
             >
                 {showOpeningStatusHero ? (
                     <OpeningStatusHero
