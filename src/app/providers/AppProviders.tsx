@@ -1,5 +1,4 @@
 import { QueryClientProvider } from "@tanstack/react-query"
-import { usePathname } from "expo-router"
 import * as Updates from "expo-updates"
 import React, { PropsWithChildren, useEffect, useMemo } from "react"
 import { AppState, LogBox } from "react-native"
@@ -7,16 +6,13 @@ import { MD3LightTheme, PaperProvider } from "react-native-paper"
 import { Uniwind } from "uniwind"
 import { DeepLinkProvider } from "@/app/providers/DeepLinkProvider"
 import { LanguageProvider } from "@/app/providers/LanguageProvider"
+import { OtaReloadNotice } from "@/app/providers/OtaReloadNotice"
 import { queryClient } from "@/app/providers/queryClient"
 import { SessionProvider } from "@/app/providers/SessionProvider"
 import { FrontpageRolesProvider } from "@/features/dashboard/ui/FrontpageRolesProvider"
 import { useThemeRuntimeColors } from "@/shared/theme/use-theme-runtime-colors"
 import { BlurTargetProvider } from "@/shared/ui/blur/BlurTargetProvider"
 import { SafeAreaListener, SafeAreaProvider } from "@/shared/ui/interop"
-
-/** Routes where a reload would wipe a game in progress (a running chess clock, rolled dice). */
-const isGameRoute = (pathname: string): boolean =>
-    pathname.startsWith("/games") || pathname === "/chess-time-control"
 
 if (__DEV__) {
     // React Native 0.83 currently emits this native Animated warning during some iOS
@@ -26,19 +22,8 @@ if (__DEV__) {
 
 export const AppProviders = ({ children }: PropsWithChildren): React.JSX.Element => {
     const colors = useThemeRuntimeColors()
-    const { isUpdatePending } = Updates.useUpdates()
-    const inGame = isGameRoute(usePathname())
-
-    // Reload as soon as an update is downloaded, except mid-game: there it waits
-    // until the user leaves the games tab. Elsewhere an in-progress form still resets.
-    useEffect(() => {
-        if (isUpdatePending && !inGame) {
-            void Updates.reloadAsync()
-        }
-    }, [isUpdatePending, inGame])
-
     // Check for (and download) an OTA update every time the app is opened/foregrounded;
-    // the effect above then reloads. Failures are ignored: we simply retry next open.
+    // OtaReloadNotice then counts down and reloads. Failures are ignored: we simply retry next open.
     useEffect(() => {
         if (!Updates.isEnabled) return
         const check = async (): Promise<void> => {
@@ -86,6 +71,7 @@ export const AppProviders = ({ children }: PropsWithChildren): React.JSX.Element
                                     <SessionProvider>
                                         <FrontpageRolesProvider>{children}</FrontpageRolesProvider>
                                     </SessionProvider>
+                                    <OtaReloadNotice />
                                 </LanguageProvider>
                             </DeepLinkProvider>
                         </QueryClientProvider>

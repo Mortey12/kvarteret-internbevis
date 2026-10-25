@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
     BeerState,
     createFullBeer,
+    FRESH_FOAM,
+    FULL_FILL,
     isBeerEmpty,
     pourAngleFromGravity,
     shakeFromSample,
@@ -15,6 +17,7 @@ import { triggerSelectionHaptic, triggerSoftImpactHaptic } from "@/shared/utils/
 const SENSOR_INTERVAL_MS = 33
 const GLUG_INTERVAL_MS = 260
 const DEFAULT_ASPECT = 1.8
+const REFILL_MS = 900
 
 export type BeerGlassStatus = "loading" | "unavailable" | "ready"
 
@@ -44,6 +47,7 @@ export const useBeerGlass = (enabled: boolean, aspect: number): UseBeerGlassResu
     const startedAtRef = useRef<number | null>(null)
     const lastSampleAtRef = useRef<number | null>(null)
     const lastGlugAtRef = useRef(0)
+    const refillFrameRef = useRef<number | null>(null)
 
     useEffect(() => {
         if (aspect > 0) {
@@ -51,11 +55,42 @@ export const useBeerGlass = (enabled: boolean, aspect: number): UseBeerGlassResu
         }
     }, [aspect])
 
+    // Pours from the current level up to a fresh glass; the sensor loop leaves
+    // the beer alone until the pour is done.
     const refill = useCallback((): void => {
-        const fresh = createFullBeer()
-        beerRef.current = fresh
-        setBeer(fresh)
+        if (refillFrameRef.current !== null) {
+            return
+        }
+        const from = beerRef.current
+        const startedAt = Date.now()
+        void triggerSelectionHaptic()
+
+        const tick = (): void => {
+            const progress = Math.min((Date.now() - startedAt) / REFILL_MS, 1)
+            const eased = 1 - (1 - progress) ** 3
+            const next: BeerState =
+                progress < 1
+                    ? {
+                          fill: from.fill + (FULL_FILL - from.fill) * eased,
+                          foam: from.foam + (FRESH_FOAM - from.foam) * eased,
+                          isPouring: false,
+                      }
+                    : createFullBeer()
+            beerRef.current = next
+            setBeer(next)
+            refillFrameRef.current = progress < 1 ? requestAnimationFrame(tick) : null
+        }
+        refillFrameRef.current = requestAnimationFrame(tick)
     }, [])
+
+    useEffect(
+        () => () => {
+            if (refillFrameRef.current !== null) {
+                cancelAnimationFrame(refillFrameRef.current)
+            }
+        },
+        [],
+    )
 
     useEffect(() => {
         if (!enabled) {
@@ -80,6 +115,12 @@ export const useBeerGlass = (enabled: boolean, aspect: number): UseBeerGlassResu
                 angleRef.current = pourAngleDeg
             }
 
+            setSurfaceAngleDeg(angleRef.current)
+            setClockSeconds((now - startedAtRef.current) / 1000)
+            if (refillFrameRef.current !== null) {
+                return
+            }
+
             const previous = beerRef.current
             const next = stepBeer(
                 previous,
@@ -99,8 +140,6 @@ export const useBeerGlass = (enabled: boolean, aspect: number): UseBeerGlassResu
             }
 
             setBeer(next)
-            setSurfaceAngleDeg(angleRef.current)
-            setClockSeconds((now - startedAtRef.current) / 1000)
         }
 
         const start = async (): Promise<void> => {
