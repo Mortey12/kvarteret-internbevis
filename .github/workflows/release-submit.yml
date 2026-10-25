@@ -1,10 +1,14 @@
 name: Release submit
 
+# Store builds only ship from a published GitHub Release. Day-to-day JS
+# changes go out through ota-update.yml instead.
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Git tag or ref to release (for example release-2026-04-20)"
+        description: "Tag of an existing GitHub Release to retry (for example release-2026-10-24)"
         required: true
         type: string
       platform:
@@ -16,13 +20,12 @@ on:
           - all
           - ios
           - android
-      publish_update:
-        description: "Publish EAS Update to production branch"
-        required: true
-        default: false
-        type: boolean
-      release_notes:
-        description: "Optional release notes used for TestFlight what-to-test and update message"
+      ios_build_id:
+        description: "Optional finished EAS iOS build id to submit instead of building"
+        required: false
+        type: string
+      android_build_id:
+        description: "Optional finished EAS Android build id to submit instead of building"
         required: false
         type: string
 
@@ -31,7 +34,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: release-submit-${{ inputs.release_tag }}
+  group: release-submit-${{ github.event.release.tag_name || inputs.release_tag }}
   cancel-in-progress: false
 
 jobs:
@@ -39,11 +42,30 @@ jobs:
     name: Build and submit release
     runs-on: ubuntu-latest
     environment: production-release
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      PLATFORM: ${{ inputs.platform || 'all' }}
     steps:
-      - name: Checkout release ref
+      - name: Resolve GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json isDraft,body > release.json
+          node <<'NODE'
+          const fs = require("fs");
+          const release = JSON.parse(fs.readFileSync("release.json", "utf8"));
+          if (release.isDraft) {
+            throw new Error(`Release ${process.env.RELEASE_TAG} is still a draft`);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `notes<<EOF\n${(release.body || "").trim()}\nEOF\n`);
+          NODE
+
+      - name: Checkout release tag
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: refs/tags/${{ env.RELEASE_TAG }}
           persist-credentials: false
 
       - name: Setup Node
@@ -149,16 +171,22 @@ jobs:
           token: ${{ env.EXPO_TOKEN }}
 
       - name: Build iOS production binary
-        if: ${{ inputs.platform == 'all' || inputs.platform == 'ios' }}
+        if: ${{ env.PLATFORM == 'all' || env.PLATFORM == 'ios' }}
         id: ios_build
+        env:
+          EXISTING_BUILD_ID: ${{ inputs.ios_build_id }}
         run: |
           set -euo pipefail
-          eas build \
-            --platform ios \
-            --profile production \
-            --non-interactive \
-            --wait \
-            --json | tee ios-build.json
+          if [ -n "${EXISTING_BUILD_ID}" ]; then
+            eas build:view "${EXISTING_BUILD_ID}" --json | tee ios-build.json
+          else
+            eas build \
+              --platform ios \
+              --profile production \
+              --non-interactive \
+              --wait \
+              --json | tee ios-build.json
+          fi
 
           node <<'NODE'
           const fs = require("fs");
@@ -189,16 +217,22 @@ jobs:
           NODE
 
       - name: Build Android production binary
-        if: ${{ inputs.platform == 'all' || inputs.platform == 'android' }}
+        if: ${{ env.PLATFORM == 'all' || env.PLATFORM == 'android' }}
         id: android_build
+        env:
+          EXISTING_BUILD_ID: ${{ inputs.android_build_id }}
         run: |
           set -euo pipefail
-          eas build \
-            --platform android \
-            --profile production \
-            --non-interactive \
-            --wait \
-            --json | tee android-build.json
+          if [ -n "${EXISTING_BUILD_ID}" ]; then
+            eas build:view "${EXISTING_BUILD_ID}" --json | tee android-build.json
+          else
+            eas build \
+              --platform android \
+              --profile production \
+              --non-interactive \
+              --wait \
+              --json | tee android-build.json
+          fi
 
           node <<'NODE'
           const fs = require("fs");
@@ -229,11 +263,10 @@ jobs:
           NODE
 
       - name: Submit iOS to TestFlight internal
-        if: ${{ (inputs.platform == 'all' || inputs.platform == 'ios') && steps.ios_build.outputs.ios_build_id != '' }}
+        if: ${{ (env.PLATFORM == 'all' || env.PLATFORM == 'ios') && steps.ios_build.outputs.ios_build_id != '' }}
         id: ios_submit
         env:
-          RELEASE_NOTES: ${{ inputs.release_notes }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_NOTES: ${{ steps.release.outputs.notes }}
           TESTFLIGHT_INTERNAL_GROUPS: ${{ secrets.TESTFLIGHT_INTERNAL_GROUPS }}
         run: |
           set -euo pipefail
@@ -263,7 +296,7 @@ jobs:
           echo "ios_submit_url=${SUBMIT_URL}" >> "${GITHUB_OUTPUT}"
 
       - name: Submit Android to Play internal testing
-        if: ${{ (inputs.platform == 'all' || inputs.platform == 'android') && steps.android_build.outputs.android_build_id != '' }}
+        if: ${{ (env.PLATFORM == 'all' || env.PLATFORM == 'android') && steps.android_build.outputs.android_build_id != '' }}
         id: android_submit
         run: |
           set -euo pipefail
@@ -277,58 +310,16 @@ jobs:
           SUBMIT_URL="$(grep -Eo 'https://expo\.dev/[^ ]+/submissions/[^ ]+' android-submit.log | head -n 1 || true)"
           echo "android_submit_url=${SUBMIT_URL}" >> "${GITHUB_OUTPUT}"
 
-      - name: Publish production EAS Update
-        if: ${{ inputs.publish_update == true }}
-        id: ota_update
-        env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
-        run: |
-          set -euo pipefail
-          MESSAGE="Release ${RELEASE_TAG} @ ${GITHUB_SHA}"
-          if [ -n "${RELEASE_NOTES}" ]; then
-            MESSAGE="${MESSAGE} - ${RELEASE_NOTES}"
-          fi
-
-          eas update --environment production \
-            --branch production \
-            --platform all \
-            --message "${MESSAGE}" \
-            --non-interactive \
-            --json | tee eas-update.json
-
-          node <<'NODE'
-          const fs = require("fs");
-
-          const raw = fs.readFileSync("eas-update.json", "utf8").trim();
-          if (!raw) {
-            throw new Error("eas update output was empty");
-          }
-
-          const parsed = JSON.parse(raw);
-          const updates = Array.isArray(parsed) ? parsed : [parsed];
-          const dashboardUrl =
-            updates.map(item => item.dashboardUrl || item.detailsPageUrl || item.url).find(Boolean) || "";
-          const groups = [...new Set(updates.map(item => item.group).filter(Boolean))];
-
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `update_dashboard_url=${dashboardUrl}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `update_group_ids=${groups.join(",")}\n`);
-          NODE
-
       - name: Release summary
         if: always()
         env:
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          TARGET_PLATFORM: ${{ inputs.platform }}
-          PUBLISH_UPDATE: ${{ inputs.publish_update }}
+          TARGET_PLATFORM: ${{ env.PLATFORM }}
           RELEASE_VERSION: ${{ steps.release_meta.outputs.version }}
           RELEASE_BUILD_NUMBER: ${{ steps.release_meta.outputs.build_number }}
           IOS_BUILD_URL: ${{ steps.ios_build.outputs.ios_build_url }}
           ANDROID_BUILD_URL: ${{ steps.android_build.outputs.android_build_url }}
           IOS_SUBMIT_URL: ${{ steps.ios_submit.outputs.ios_submit_url }}
           ANDROID_SUBMIT_URL: ${{ steps.android_submit.outputs.android_submit_url }}
-          UPDATE_DASHBOARD_URL: ${{ steps.ota_update.outputs.update_dashboard_url }}
-          UPDATE_GROUP_IDS: ${{ steps.ota_update.outputs.update_group_ids }}
         run: |
           {
             echo "## Release Submit Summary"
@@ -337,7 +328,6 @@ jobs:
             echo "- Platforms: \`${TARGET_PLATFORM}\`"
             echo "- Version: \`${RELEASE_VERSION}\`"
             echo "- Build number/versionCode: \`${RELEASE_BUILD_NUMBER}\`"
-            echo "- Publish OTA update: \`${PUBLISH_UPDATE}\`"
             echo ""
             echo "### Build details"
             echo "- iOS EAS build: ${IOS_BUILD_URL:-n/a}"
@@ -346,8 +336,4 @@ jobs:
             echo "### Submit details"
             echo "- iOS submit: ${IOS_SUBMIT_URL:-n/a}"
             echo "- Android submit: ${ANDROID_SUBMIT_URL:-n/a}"
-            echo ""
-            echo "### OTA update"
-            echo "- Dashboard: ${UPDATE_DASHBOARD_URL:-not-published}"
-            echo "- Update groups: ${UPDATE_GROUP_IDS:-not-published}"
           } >> "${GITHUB_STEP_SUMMARY}"

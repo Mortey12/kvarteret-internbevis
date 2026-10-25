@@ -61,7 +61,8 @@
             "ios": {
                 "ascApiKeyPath": ".secrets/app_store_connect_api_key.p8",
                 "ascApiKeyIssuerId": "$APP_STORE_CONNECT_ISSUER_ID",
-                "ascApiKeyId": "$APP_STORE_CONNECT_KEY_ID"
+                "ascApiKeyId": "$APP_STORE_CONNECT_KEY_ID",
+                "ascAppId": "6578415973"
             }
         },
         "production-android": {

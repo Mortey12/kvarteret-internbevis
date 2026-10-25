@@ -160,11 +160,12 @@ This repository is configured for hybrid previews:
 2. Register devices through EAS/Apple Developer for the preview provisioning profile.
 3. Re-run preview build after adding devices so new testers can install the iOS build from Firebase App Distribution.
 
-## Production releases (manual dispatch CI)
+## Production releases
 
-This repository now uses a controlled release workflow:
+There are two release paths:
 
-- `.github/workflows/release-submit.yml` builds production binaries and submits to TestFlight internal + Play internal testing.
+- `.github/workflows/ota-update.yml` publishes a production OTA update. Run it from `development` (Actions → OTA update → Run workflow) for JS/asset-only changes. It targets the runtime in `app.json`'s `version`.
+- `.github/workflows/release-submit.yml` builds store binaries and submits to TestFlight internal + Play internal testing. It runs only when a GitHub Release is published.
 - `.github/workflows/release-promote-checklist.yml` creates the manual promotion checklist for App Store Connect and Google Play.
 
 ### Required release secrets
@@ -186,14 +187,10 @@ This repository now uses a controlled release workflow:
 
 `app.json`'s `version`/`buildNumber`/`versionCode` fields are **local/dev-build values only**. Do not bump them by hand as part of a release — the workflow overwrites them at build time. They exist so `expo run:ios`/`expo run:android` and Expo Go have a sane version during local development.
 
-### How to release
+### How to release to the stores
 
-1. Push a release ref/tag.
-2. Run `release-submit.yml` with:
-   - `release_tag`
-   - `platform` (`all|ios|android`)
-   - `publish_update` (`true|false`)
-   - `release_notes` (optional)
+1. Publish a GitHub Release with a `release-*` tag. The release body becomes the TestFlight "what to test" text.
+2. `release-submit.yml` starts on publish. To retry a failed submit, run it manually with the same `release_tag`; pass `ios_build_id`/`android_build_id` to submit finished EAS builds without rebuilding.
 3. Validate in TestFlight internal + Play internal.
 4. Run `release-promote-checklist.yml` and complete manual production promotion in store consoles.
 
