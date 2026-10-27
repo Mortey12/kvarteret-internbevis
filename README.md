@@ -241,6 +241,22 @@ npm run api:check:events
 For local or pinned contract generation, set `SAMFUNNET_EVENTS_OPENAPI` to an
 OpenAPI URL or file path before running either command.
 
+## Kvarteret Personal API (Skiftlista)
+
+Skiftlista calls Personal's `/api/v1/mobile-card/shifts/*` routes with the
+mobile-card session token. The typed client in
+`src/core/api/kvarteret-personal` is generated from Personal's `openapi.json`,
+keeping only the operations tagged `mobile-shifts`:
+
+```bash
+npm run api:generate:personal
+npm run api:check:personal
+```
+
+The generator reads `../kvarteret-personal/openapi.json` (a sibling checkout)
+unless `KVARTERET_PERSONAL_OPENAPI` points at another file. The check is not
+part of `npm run api:check` yet, because CI has no Personal checkout.
+
 ## Expo Go login-link support
 
 Expo Go cannot register the production custom URL scheme the same way as a standalone app.

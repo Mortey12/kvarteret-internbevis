@@ -41,7 +41,7 @@
     },
     "overrides": [
         {
-            "includes": ["src/core/api/samfunnet-events/**"],
+            "includes": ["src/core/api/samfunnet-events/**", "src/core/api/kvarteret-personal/**"],
             "linter": {
                 "enabled": false
             },
