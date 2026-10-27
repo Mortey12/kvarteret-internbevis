@@ -128,6 +128,7 @@ const RootNavigator = (): React.JSX.Element => {
                     animation: Platform.OS === "ios" ? "default" : "slide_from_bottom",
                 }}
             />
+            <Stack.Screen name="shift/[slotId]" options={{ title: t("shiftPlaceTitle") }} />
             <Stack.Screen name="privacy" />
             <Stack.Screen name="about" />
             <Stack.Screen name="feedback" />

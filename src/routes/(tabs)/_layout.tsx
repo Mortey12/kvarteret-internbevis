@@ -47,6 +47,12 @@ export default function TabsLayout(): React.JSX.Element {
                 <NativeTabs.Trigger.Label>{t("tabSamfunnet")}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
 
+            {user ? (
+                <NativeTabs.Trigger name="skift">
+                    <NativeTabs.Trigger.Icon md="event_available" sf="calendar" />
+                    <NativeTabs.Trigger.Label>{t("tabSkift")}</NativeTabs.Trigger.Label>
+                </NativeTabs.Trigger>
+            ) : null}
             <NativeTabs.Trigger name="games">
                 <NativeTabs.Trigger.Icon md="sports_esports" sf="gamecontroller.fill" />
                 <NativeTabs.Trigger.Label>{t("tabSpill")}</NativeTabs.Trigger.Label>
