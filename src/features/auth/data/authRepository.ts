@@ -369,6 +369,16 @@ const renewSessionWithRefreshToken = async (): Promise<User | null> => {
     return session.user
 }
 
+// For callers outside the card refresh (Skiftlista): renews through the same refresh-token
+// path and hands back the new session token. Null means the session cannot be renewed.
+export const renewStoredSessionToken = async (): Promise<string | null> => {
+    const renewedUser = await renewSessionWithRefreshToken()
+    if (!renewedUser) {
+        return null
+    }
+    return (await getSavedCredentials()).accessToken
+}
+
 // Like getInternkortInformation, but a 401 first tries the refresh token and
 // only surfaces the original 401 when renewal is impossible.
 export const getInternkortInformationWithRenewal = async (sessionToken: string): Promise<User> => {

@@ -24,6 +24,7 @@ import {
     getCachedUser,
     getInternkortInformation,
     getInternkortInformationWithRenewal,
+    renewStoredSessionToken,
 } from "@/features/auth/data/authRepository"
 
 describe("getInternkortInformation", () => {
@@ -295,5 +296,69 @@ describe("getInternkortInformationWithRenewal", () => {
             code: "INVALID_AUTH",
         })
         expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("renewStoredSessionToken", () => {
+    const originalFetch = global.fetch
+    const card = {
+        person_id: 12,
+        first_name: "Ada",
+        last_name: "Lovelace",
+        birth_date: null,
+        created_at: "2026-03-01T12:00:00Z",
+        valid_until: "2026-06-01T12:00:00Z",
+        photo_url: null,
+        pingvin_points: 8,
+        active_roles: [],
+        word_of_the_day: "pingvin",
+    }
+    const response = (status: number, body: unknown) => ({
+        headers: { get: (name: string) => (name === "content-type" ? "application/json" : null) },
+        json: async () => body,
+        status,
+    })
+    const stored = (values: Record<string, string | null>) =>
+        (getSessionValue as jest.Mock).mockImplementation(
+            async (key: string) => values[key] ?? null,
+        )
+
+    beforeEach(() => {
+        global.fetch = jest.fn() as typeof fetch
+        jest.clearAllMocks()
+    })
+
+    afterAll(() => {
+        global.fetch = originalFetch
+    })
+
+    it("renews through the refresh token and returns the stored new token", async () => {
+        stored({ refreshToken: "refresh-1" })
+        ;(global.fetch as jest.Mock).mockResolvedValueOnce(
+            response(200, { session_token: "new-session", card }),
+        )
+        ;(setSessionValue as jest.Mock).mockImplementation(async (key: string, value: string) =>
+            stored({ refreshToken: "refresh-1", [key]: value }),
+        )
+
+        await expect(renewStoredSessionToken()).resolves.toBe("new-session")
+        expect(setSessionValue).toHaveBeenCalledWith("accessToken", "new-session")
+    })
+
+    it("returns null without a refresh token", async () => {
+        stored({})
+
+        await expect(renewStoredSessionToken()).resolves.toBeNull()
+        expect(global.fetch).not.toHaveBeenCalled()
+    })
+
+    it("returns null and drops a rejected refresh token", async () => {
+        stored({ refreshToken: "refresh-1" })
+        ;(global.fetch as jest.Mock).mockResolvedValueOnce(
+            response(401, { detail: "Invalid refresh token." }),
+        )
+
+        await expect(renewStoredSessionToken()).resolves.toBeNull()
+        expect(removeSessionValue).toHaveBeenCalledWith("refreshToken")
     })
 })

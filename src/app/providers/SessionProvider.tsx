@@ -28,6 +28,7 @@ import {
     getSavedCredentials,
     getSavedLoginMarker,
     getSavedRefreshToken,
+    renewStoredSessionToken,
     saveCredentials,
     saveLoginMarker,
     saveRefreshToken,
@@ -74,6 +75,10 @@ interface SessionContextValue {
     staleFromCache: boolean
     cardRefresh: CardRefreshInfo
     refreshCard: () => Promise<void>
+    // Token access for features that call Personal's mobile-card API (Skiftlista).
+    getSessionToken: () => Promise<string | null>
+    // Renews via the refresh token; null when the session cannot be renewed.
+    renewSessionToken: () => Promise<string | null>
     isAnonymous: boolean
     isHydrating: boolean
     isLoading: boolean
@@ -142,6 +147,33 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
         } finally {
             refreshInFlight.current = false
         }
+    }, [])
+
+    const getSessionToken = useCallback(async (): Promise<string | null> => {
+        const { accessToken } = await getSavedCredentials()
+        return accessToken
+    }, [])
+
+    // Parallel callers share one renewal. Like refreshCard, a rejected session never signs
+    // the user out here; it is reported as an auth failure and the card stays visible.
+    // This can run at the same time as refreshCard's own renewal: Personal's refresh tokens
+    // are not rotated or single-use, so using one twice is harmless.
+    const renewalInFlight = useRef<Promise<string | null> | null>(null)
+    const renewSessionToken = useCallback((): Promise<string | null> => {
+        if (renewalInFlight.current) return renewalInFlight.current
+        const renewal = (async (): Promise<string | null> => {
+            try {
+                const token = await renewStoredSessionToken()
+                if (!token) {
+                    setCardRefresh(previous => ({ ...previous, status: "failed", failure: "auth" }))
+                }
+                return token
+            } finally {
+                renewalInFlight.current = null
+            }
+        })()
+        renewalInFlight.current = renewal
+        return renewal
     }, [])
 
     // Every time the app is opened/foregrounded, refresh the card again.
@@ -356,6 +388,8 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             staleFromCache: state.status === "authenticated" ? state.staleFromCache : false,
             cardRefresh,
             refreshCard,
+            getSessionToken,
+            renewSessionToken,
             isAnonymous: state.status === "anonymous",
             isHydrating: state.status === "hydrating",
             isLoading,
@@ -370,10 +404,12 @@ export const SessionProvider = ({ children }: PropsWithChildren): React.JSX.Elem
             cardRefresh,
             continueAnonymously,
             exitAnonymousMode,
+            getSessionToken,
             isLoading,
             loginWithToken,
             logout,
             refreshCard,
+            renewSessionToken,
             setUser,
             state,
         ],
