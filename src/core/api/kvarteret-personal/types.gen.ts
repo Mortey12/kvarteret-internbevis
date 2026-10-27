@@ -1464,6 +1464,10 @@ export type MyShift = {
      * Venue Label
      */
     venue_label: string
+    /**
+     * Warnings
+     */
+    warnings?: Array<string>
 }
 
 /**
@@ -1644,6 +1648,10 @@ export type OpenShiftsResponse = {
      * From Day
      */
     from_day: string
+    /**
+     * Has More
+     */
+    has_more?: boolean
     /**
      * Scope
      */
@@ -1984,10 +1992,6 @@ export type ShiftSummary = {
  */
 export type ShiftWishesResponse = {
     /**
-     * Months
-     */
-    months: Array<WishMonth>
-    /**
      * Rules
      */
     rules: Array<WeekdayRule>
@@ -2003,6 +2007,10 @@ export type ShiftWishesResponse = {
      * Shifts
      */
     shifts: Array<WishShift>
+    /**
+     * Weeks
+     */
+    weeks: Array<WishWeek>
 }
 
 /**
@@ -2105,44 +2113,6 @@ export type WishAnswerRequest = {
 }
 
 /**
- * WishMonth
- */
-export type WishMonth = {
-    /**
-     * Accepts Wishes
-     */
-    accepts_wishes: boolean
-    /**
-     * Group Id
-     */
-    group_id: number
-    /**
-     * Group Name
-     */
-    group_name: string
-    /**
-     * Label
-     */
-    label: string
-    /**
-     * Month
-     */
-    month: string
-    /**
-     * Note
-     */
-    note: string
-    /**
-     * Status
-     */
-    status: "open" | "allocating" | "published"
-    /**
-     * Status Label
-     */
-    status_label: string
-}
-
-/**
  * WishShift
  */
 export type WishShift = {
@@ -2206,6 +2176,48 @@ export type WishShift = {
      * Venue Label
      */
     venue_label: string
+}
+
+/**
+ * WishWeek
+ */
+export type WishWeek = {
+    /**
+     * Accepts Wishes
+     */
+    accepts_wishes: boolean
+    /**
+     * Group Id
+     */
+    group_id: number
+    /**
+     * Group Name
+     */
+    group_name: string
+    /**
+     * Label
+     */
+    label: string
+    /**
+     * Note
+     */
+    note: string
+    /**
+     * Status
+     */
+    status: "open" | "allocating" | "published"
+    /**
+     * Status Label
+     */
+    status_label: string
+    /**
+     * Week Number
+     */
+    week_number: number
+    /**
+     * Week Start
+     */
+    week_start: string
 }
 
 export type UndoShiftCannotAttendData = {

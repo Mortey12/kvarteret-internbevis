@@ -181,6 +181,6 @@ export type {
     VolunteerStatsResponse,
     WeekdayRule,
     WishAnswerRequest,
-    WishMonth,
     WishShift,
+    WishWeek,
 } from "./types.gen"
