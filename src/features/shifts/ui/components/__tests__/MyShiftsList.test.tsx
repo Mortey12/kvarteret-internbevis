@@ -80,6 +80,19 @@ describe("MyShiftsList actions", () => {
         expect(screen.queryByText("Kan ikke i dag")).toBeNull()
     })
 
+    it("shows only the role for crew members without a first name", () => {
+        mockShifts.value = [
+            shift({
+                crew: [
+                    { first_name: "", slot_label: "Skjenker" },
+                    { first_name: "Kari", slot_label: "Bartender" },
+                ],
+            }),
+        ]
+        render(<MyShiftsList groups={[]} />)
+        expect(screen.getByText("Skjenker, Kari (Bartender)")).toBeTruthy()
+    })
+
     it("shows swap and 'kan ikke' only for the flags that are true", () => {
         mockShifts.value = [shift({ can_request_swap: true })]
         render(<MyShiftsList groups={[]} />)

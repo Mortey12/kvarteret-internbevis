@@ -9,7 +9,7 @@ import { CoursesSection } from "@/features/shifts/ui/components/CoursesSection"
 import { ShiftActionBanner } from "@/features/shifts/ui/components/ShiftActionBanner"
 import { describeShiftsError } from "@/features/shifts/ui/components/ShiftsErrorText"
 import { ShiftsStateMessage } from "@/features/shifts/ui/components/ShiftsStateMessage"
-import { TONE_TEXT_CLASS } from "@/features/shifts/ui/components/shiftTone"
+import { getToneTextClass } from "@/features/shifts/ui/components/shiftTone"
 import { useShiftActions } from "@/features/shifts/vm/useShiftActions"
 import { type OpenShiftsScope, useOpenShifts } from "@/features/shifts/vm/useShiftsQueries"
 import { useThemeRuntimeColors } from "@/shared/theme/use-theme-runtime-colors"
@@ -54,7 +54,7 @@ const OpenShiftCard = ({ shift }: { shift: OpenShift }): React.JSX.Element => {
                             })}
                         </Text>
                         <Text
-                            className={`flex-1 text-right text-sm ${TONE_TEXT_CLASS[place.tone]}`}
+                            className={`flex-1 text-right text-sm ${getToneTextClass(place.tone)}`}
                         >
                             {place.status_text}
                         </Text>

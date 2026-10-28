@@ -2,7 +2,12 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Pressable, View } from "react-native"
-import { getVisibleShiftTabs, withTabCount } from "@/features/shifts/domain/shiftsView"
+import {
+    findTab,
+    getVisibleShiftTabs,
+    tabKey,
+    withTabCount,
+} from "@/features/shifts/domain/shiftsView"
 import { MyShiftsList } from "@/features/shifts/ui/components/MyShiftsList"
 import { OpenShiftsList } from "@/features/shifts/ui/components/OpenShiftsList"
 import { describeShiftsError } from "@/features/shifts/ui/components/ShiftsErrorText"
@@ -26,9 +31,9 @@ export const ShiftsScreen = ({
 }: ShiftsScreenProps): React.JSX.Element => {
     const { t } = useTranslation()
     const config = useShiftConfig()
-    const [selectedId, setSelectedId] = useState<string | null>(requestedTab)
+    const [selectedKey, setSelectedKey] = useState<string | null>(requestedTab)
     useEffect(() => {
-        if (requestedTab) setSelectedId(requestedTab)
+        if (requestedTab) setSelectedKey(requestedTab)
     }, [requestedTab])
     // Shared with the Mine tab, so the count costs no extra request.
     const mine = useMyShifts(Boolean(config.data?.enabled))
@@ -63,19 +68,21 @@ export const ShiftsScreen = ({
         )
     }
 
-    const active = tabs.find(tab => tab.id === selectedId) ?? tabs[0]
+    const active = findTab(tabs, selectedKey) ?? tabs[0]
+    const activeKey = tabKey(active)
 
     return (
         <DashboardShellLayout>
             <View className="flex-row gap-2 px-4 pb-2 pt-2.5">
                 {tabs.map(tab => {
-                    const selected = tab.id === active.id
+                    const key = tabKey(tab)
+                    const selected = key === activeKey
                     return (
                         <Pressable
-                            key={tab.id}
+                            key={key}
                             accessibilityRole="tab"
                             accessibilityState={{ selected }}
-                            onPress={() => setSelectedId(tab.id)}
+                            onPress={() => setSelectedKey(key)}
                             className={cn(
                                 "rounded-full border px-4 py-2",
                                 selected ? "border-tab-active bg-tab-active" : "border-border",

@@ -15,6 +15,29 @@ const IMPLEMENTED_TABS: readonly ShiftTabId[] = ["open", "mine", "wishes"]
 export const getVisibleShiftTabs = (config: ShiftAppConfigResponse): ShiftAppTab[] =>
     config.enabled ? config.tabs.filter(tab => IMPLEMENTED_TABS.includes(tab.id)) : []
 
+// The server may send two tabs with the same id (open, scope own and other), so a tab is
+// identified by id and scope together.
+export const tabKey = (tab: Pick<ShiftAppTab, "id" | "scope">): string =>
+    `${tab.id}:${tab.scope ?? ""}`
+
+// A requested tab is either a full key or a bare id ("mine"); a bare id picks the first match.
+export const findTab = (
+    tabs: readonly ShiftAppTab[],
+    requested: string | null,
+): ShiftAppTab | undefined =>
+    requested === null
+        ? undefined
+        : (tabs.find(tab => tabKey(tab) === requested) ?? tabs.find(tab => tab.id === requested))
+
+// "Skjenker" when the server sends no first name, never " (Skjenker)".
+export const formatCrewMember = (member: {
+    first_name?: string | null
+    slot_label: string
+}): string => {
+    const name = member.first_name?.trim()
+    return name ? `${name} (${member.slot_label})` : member.slot_label
+}
+
 export interface DayGroup<T extends { day: string; day_label: string }> {
     day: string
     dayLabel: string

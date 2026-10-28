@@ -5,6 +5,8 @@ import type {
     WishWeek,
 } from "@/core/api/kvarteret-personal"
 import {
+    findTab,
+    formatCrewMember,
     formatMonthHeading,
     formatQuotaCount,
     getTrainingProgress,
@@ -13,6 +15,7 @@ import {
     groupWishesByMonth,
     nextOpenDays,
     quotaProgress,
+    tabKey,
     weekStartOf,
     withTabCount,
 } from "@/features/shifts/domain/shiftsView"
@@ -204,5 +207,40 @@ describe("open list dates", () => {
     it("extends by two weeks up to the server's limit", () => {
         expect(nextOpenDays(14)).toBe(28)
         expect(nextOpenDays(90)).toBe(92)
+    })
+})
+
+describe("tabKey and findTab", () => {
+    const tabs = [
+        { id: "open" as const, label: "Stjerne", scope: "own" as const },
+        { id: "open" as const, label: "Andre", scope: "other" as const },
+        { id: "mine" as const, label: "Mine" },
+    ]
+
+    it("gives tabs with the same id different keys", () => {
+        expect(new Set(tabs.map(tabKey)).size).toBe(3)
+    })
+
+    it("finds a tab by full key, or the first tab by bare id", () => {
+        expect(findTab(tabs, tabKey(tabs[1]))).toBe(tabs[1])
+        expect(findTab(tabs, "open")).toBe(tabs[0])
+        expect(findTab(tabs, "mine")).toBe(tabs[2])
+        expect(findTab(tabs, "nope")).toBeUndefined()
+        expect(findTab(tabs, null)).toBeUndefined()
+    })
+})
+
+describe("formatCrewMember", () => {
+    it("shows name and role", () => {
+        expect(formatCrewMember({ first_name: "Kari", slot_label: "Skjenker" })).toBe(
+            "Kari (Skjenker)",
+        )
+    })
+
+    it("shows only the role when the first name is missing or empty", () => {
+        expect(formatCrewMember({ first_name: "", slot_label: "Skjenker" })).toBe("Skjenker")
+        expect(formatCrewMember({ first_name: "  ", slot_label: "Skjenker" })).toBe("Skjenker")
+        expect(formatCrewMember({ first_name: null, slot_label: "Skjenker" })).toBe("Skjenker")
+        expect(formatCrewMember({ slot_label: "Skjenker" })).toBe("Skjenker")
     })
 })

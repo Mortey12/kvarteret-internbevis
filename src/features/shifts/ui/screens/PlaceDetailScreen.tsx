@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Pressable, ScrollView, View } from "react-native"
 import type { CourseOffer } from "@/core/api/kvarteret-personal"
+import { formatCrewMember } from "@/features/shifts/domain/shiftsView"
 import { RequirementRow } from "@/features/shifts/ui/components/RequirementRow"
 import { ShiftActionBanner } from "@/features/shifts/ui/components/ShiftActionBanner"
 import { describeShiftsError } from "@/features/shifts/ui/components/ShiftsErrorText"
@@ -156,9 +157,7 @@ export const PlaceDetailScreen = ({
 
                 {crew.length > 0 ? (
                     <Text className="text-xs text-text-muted">
-                        {crew
-                            .map(member => `${member.first_name} (${member.slot_label})`)
-                            .join(", ")}
+                        {crew.map(formatCrewMember).join(", ")}
                     </Text>
                 ) : null}
                 {query.data.meeting_point ? (

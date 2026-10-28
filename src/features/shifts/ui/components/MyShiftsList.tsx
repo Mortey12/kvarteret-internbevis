@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { RefreshControl, ScrollView, View } from "react-native"
 import type { MyShift, ShiftAppGroup } from "@/core/api/kvarteret-personal"
 import {
+    formatCrewMember,
     formatQuotaCount,
     getTrainingProgress,
     groupByDay,
@@ -33,7 +34,7 @@ interface MyShiftCardProps {
 const MyShiftCard = ({ shift, busy, perform }: MyShiftCardProps): React.JSX.Element => {
     const { t } = useTranslation()
     const [prompt, setPrompt] = useState<CardPrompt | null>(null)
-    const crew = shift.crew.map(member => `${member.first_name} (${member.slot_label})`).join(", ")
+    const crew = shift.crew.map(formatCrewMember).join(", ")
     const id = shift.assignment_id
     const tags = [
         ...(shift.counts_as_samfunnettjeneste ? [t("shiftsTagSamf")] : []),

@@ -105,6 +105,17 @@ describe("PlaceDetailScreen", () => {
         expect(repository.claimPlace).toHaveBeenCalledWith(114, [2])
     })
 
+    it("shows only the role for crew without a first name, and survives an unknown requirement state", () => {
+        mockPlace.value = detail({
+            crew: [{ first_name: "", slot_label: "Skjenker" }],
+            requirements: [{ state: "future", text: "Ny regel" }],
+        })
+        render(<PlaceDetailScreen slotId={34} onClaimed={jest.fn()} />)
+        expect(screen.getByText("Skjenker")).toBeTruthy()
+        expect(screen.queryByText(/^ \(/)).toBeNull()
+        expect(screen.getByText("Ny regel")).toBeTruthy()
+    })
+
     it("shows no claim button when the API gives no claim label", () => {
         mockPlace.value = detail({ claim_label: null })
         render(<PlaceDetailScreen slotId={34} onClaimed={jest.fn()} />)

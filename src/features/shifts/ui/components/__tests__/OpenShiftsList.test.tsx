@@ -57,6 +57,17 @@ describe("OpenShiftsList", () => {
         ]
     })
 
+    it("renders a place with an unknown tone", () => {
+        mockShifts.value = [
+            {
+                ...shift(1, "2026-11-03", "Tirsdag 3. november"),
+                places: [{ ...place(10, "Skiftleder", 1), tone: "purple" }],
+            },
+        ]
+        render(<OpenShiftsList scope="own" />)
+        expect(screen.getByText("Ledig")).toBeTruthy()
+    })
+
     it("puts a date heading above the very first card", () => {
         render(<OpenShiftsList scope="own" />)
         expect(screen.getByText("Tirsdag 3. november")).toBeTruthy()
